@@ -75,7 +75,9 @@ public class StringElement
     {
         _out.write(String.valueOf(this.getValue().length()).getBytes("UTF8"));
         _out.write(':');
-        _out.write(this.getValue().getBytes("UTF8"));
+        if (!"".equals(this.getValue()))  {
+            _out.write(this.getValue().getBytes("UTF8"));
+        }
         _out.write(' ');
     }
 
