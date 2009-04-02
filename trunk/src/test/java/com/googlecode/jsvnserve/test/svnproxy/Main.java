@@ -44,5 +44,6 @@ public class Main
         Thread.sleep(100000);
 
         System.out.println("SVN Server end!");
+        System.exit(0);
     }
 }
