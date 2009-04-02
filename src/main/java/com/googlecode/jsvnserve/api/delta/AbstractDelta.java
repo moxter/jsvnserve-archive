@@ -89,11 +89,11 @@ public abstract class AbstractDelta
         this.committedDate = _committedDate;
     }
 
-    public abstract void writeOpen(final SVNServerSession _session,
-                                   final String _parentToken)
+    protected abstract void writeOpen(final SVNServerSession _session,
+                                      final String _parentToken)
             throws UnsupportedEncodingException, IOException;
 
-    public abstract void writeClose(final SVNServerSession _session)
+    protected abstract void writeClose(final SVNServerSession _session)
             throws UnsupportedEncodingException, IOException;
 
     protected void writeAllProperties(final SVNServerSession _session,

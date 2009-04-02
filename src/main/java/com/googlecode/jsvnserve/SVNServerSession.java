@@ -20,7 +20,6 @@
 
 package com.googlecode.jsvnserve;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -32,7 +31,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Stack;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +49,6 @@ import com.googlecode.jsvnserve.api.LogEntryList.ChangedPath;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
 import com.googlecode.jsvnserve.api.ReportList.DeletePath;
 import com.googlecode.jsvnserve.api.ReportList.SetPath;
-import com.googlecode.jsvnserve.api.delta.AbstractDelta;
 import com.googlecode.jsvnserve.api.delta.Editor;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
@@ -141,7 +138,7 @@ public class SVNServerSession
      * Used for empty SVN response for
      * &quot;<code>( success ( ( ) ) )</code>&quot;.
      */
-    private static final ListElement EMPTY_SUCCESS
+    public static final ListElement EMPTY_SUCCESS
             = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement()));
 
     private final OutputStream out;
@@ -195,7 +192,7 @@ public class SVNServerSession
         try {
             this.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
-                            new ListElement(2, 2, new ListElement(),
+                            new ListElement(1, 2, new ListElement(),
                                     new ListElement(Word.EDIT_PIPELINE, Word.SVNDIFF1, Word.ABSENT_ENTRIES, Word.COMMIT_REVPRODS,
                                                     Word.DEPTH,Word.LOG_REVPROPS))));
 
@@ -210,9 +207,9 @@ final String hostName = ret.getValue().get(2).getValue().toString();
 
 URI u = new URI(hostName);
 
-System.out.println("u.getPath()="+u.getPath());
 
-    this.repository = this.repositoryFactory.createRepository(this.user, u.getPath());
+    this.repository = this.repositoryFactory.createRepository(this.user,
+            "".equals(u.getPath()) ? "/" : u.getPath());
 /*
 System.out.println("this.getRepository().getRootPath()="+this.getRepository().getRootPath());
 // calculate current path depending of the repository root path
@@ -468,13 +465,17 @@ Thread.sleep(10);
             boolean modified = false;
             boolean author = false;
             for (final AbstractElement<?> elem : _parameters.get(4).getList())  {
-                switch(elem.getWord())  {
-                    case LOG_DIRENT_KIND:           kind = true;break;
-                    case LOG_DIRENT_SIZE:           size = true;break;
-                    case LOG_DIRENT_HAS_PROPS:      hasProps = true;break;
-                    case LOG_DIRENT_CREATED_REV:    createdRev = true;break;
-                    case LOG_DIRENT_TIME:           modified = true;break;
-                    case LOG_DIRENT_LAST_AUTHOR:    author = true;break;
+                if (elem.getWord() == null)  {
+                    LOGGER.error("unknown dirent word '{}'", elem.getString());
+                } else  {
+                    switch(elem.getWord())  {
+                        case LOG_DIRENT_KIND:           kind = true;break;
+                        case LOG_DIRENT_SIZE:           size = true;break;
+                        case LOG_DIRENT_HAS_PROPS:      hasProps = true;break;
+                        case LOG_DIRENT_CREATED_REV:    createdRev = true;break;
+                        case LOG_DIRENT_TIME:           modified = true;break;
+                        case LOG_DIRENT_LAST_AUTHOR:    author = true;break;
+                    }
                 }
             }
             final DirEntryList dirEntryList = this.getRepository().getDir(revision,
@@ -604,7 +605,7 @@ Thread.sleep(10);
      *     <td>if &quot;<code>true</code>&quot; and some paths already locked,
      *         the existing locks are overwritten</td></tr>
      * <tr><td><code style="color:green">( ( path:<a href="#string">string</a>
-                 ( ?current-rev:<a href="#number">number</a> ) ) ... )</code></td></tr>
+     *           ( ?current-rev:<a href="#number">number</a> ) ) ... )</code></td></tr>
      * <tr><td><code style="color:green">) )</code></td></tr>
      * </table>
      *
@@ -877,7 +878,9 @@ Thread.sleep(10);
             throws UnsupportedEncodingException, IOException, URISyntaxException
     {
         final URI uri = new URI(_parameters.get(0).getString());
-        this.currentPath = uri.getPath().substring(this.repository.getRootPath().length()
+        final String path = "".equals(uri.getPath()) ? "/" : uri.getPath();
+
+        this.currentPath = path.substring(this.repository.getRootPath().length()
                                                   + this.repository.getRepositoryPath().length());
         this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
                            new ListElement(Word.STATUS_SUCCESS, new ListElement()));
@@ -1053,36 +1056,9 @@ Thread.sleep(10);
                                                                report);
 
         // editor mode
-        this.writeItemList(new ListElement(Word.TARGET_REV, new ListElement(deltaEditor.getTargetRevision())));
+        deltaEditor.write(this);
 
-final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
-
-        for (final AbstractDelta delta : deltaEditor.getDeltas())  {
-
-            final String parentToken;
-            if (stack.isEmpty())  {
-                parentToken = null;
-            } else  {
-                final File file = new File(delta.getPath());
-                final String parentDir = (file.getParent() == null) ? "" : file.getParent();
-
-                while (!stack.peek().getPath().equals(parentDir))  {
-                    stack.pop().writeClose(this);
-                }
-
-                parentToken = stack.peek().getToken();
-            }
-
-            stack.add(delta);
-            delta.writeOpen(this, parentToken);
-        }
-
-        while (!stack.empty())  {
-            stack.pop().writeClose(this);
-        }
-
-this.writeItemList(new ListElement(Word.CLOSE_EDIT, new ListElement()),
-                   SVNServerSession.EMPTY_SUCCESS);
+        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
 
 final ListElement result = this.readItemList();
 if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {

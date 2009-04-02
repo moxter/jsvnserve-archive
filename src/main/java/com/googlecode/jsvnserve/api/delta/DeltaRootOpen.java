@@ -24,10 +24,9 @@ public class DeltaRootOpen
         super(_deltaEditor, 'd', "", _lastAuthor, _committedRevision, _committedDate);
     }
 
-
     @Override
-    public void writeOpen(final SVNServerSession _session,
-                          final String _parentToken)
+    protected void writeOpen(final SVNServerSession _session,
+                             final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
         _session.writeItemList(

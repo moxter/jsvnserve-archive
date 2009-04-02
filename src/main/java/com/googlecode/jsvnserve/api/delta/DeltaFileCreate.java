@@ -54,8 +54,8 @@ class DeltaFileCreate
     }
 
     @Override
-    public void writeOpen(final SVNServerSession _session,
-                          final String _parentToken)
+    protected void writeOpen(final SVNServerSession _session,
+                             final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
         _session.writeItemList(
@@ -136,7 +136,7 @@ class DeltaFileCreate
     }
 
     @Override
-    public void writeClose(final SVNServerSession _session)
+    protected void writeClose(final SVNServerSession _session)
     {
     }
 }

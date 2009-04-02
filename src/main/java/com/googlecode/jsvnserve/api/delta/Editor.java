@@ -20,10 +20,18 @@
 
 package com.googlecode.jsvnserve.api.delta;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
+import java.util.Stack;
 import java.util.TreeMap;
+
+import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.element.ListElement;
+import com.googlecode.jsvnserve.element.WordElement.Word;
 
 /**
  *
@@ -141,5 +149,44 @@ public class Editor
         final AbstractDelta delta = new DeltaFileCreate(this, _path, _lastAuthor, _revision, _date);
         this.deltas.put(_path, delta);
         return delta;
+    }
+
+    /**
+     *
+
+     * @param _session
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    public void write(final SVNServerSession _session)
+            throws UnsupportedEncodingException, IOException
+    {
+        _session.writeItemList(new ListElement(Word.TARGET_REV, new ListElement(this.getTargetRevision())));
+
+        final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
+        for (final AbstractDelta delta : this.getDeltas())  {
+            final String parentToken;
+            if (stack.isEmpty())  {
+                parentToken = null;
+            } else  {
+                final File file = new File(delta.getPath());
+                final String parentDir = (file.getParent() == null) ? "" : file.getParent();
+
+                while (!stack.peek().getPath().equals(parentDir))  {
+                    stack.pop().writeClose(_session);
+                }
+
+                parentToken = stack.peek().getToken();
+            }
+
+            stack.add(delta);
+            delta.writeOpen(_session, parentToken);
+        }
+
+        while (!stack.empty())  {
+            stack.pop().writeClose(_session);
+        }
+
+        _session.writeItemList(new ListElement(Word.CLOSE_EDIT, new ListElement()));
     }
 }
