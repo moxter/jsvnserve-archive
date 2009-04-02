@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -147,8 +146,6 @@ public class SVNServerSession
 
     private final String user;
 
-    private final Socket socket;
-
     /**
      * Factory instance to create {@link #repository} instance depending on the
      * defined path from the SVN client.
@@ -170,19 +167,9 @@ public class SVNServerSession
                             final String _user,
                             final IRepositoryFactory _repositoryFactory)
     {
-        this(null, _in, _out, _user, _repositoryFactory);
-    }
-
-    public SVNServerSession(final Socket _socket,
-                            final InputStream _in,
-                            final OutputStream _out,
-                            final String _user,
-                            final IRepositoryFactory _repositoryFactory)
-    {
         this.in = _in;
         this.out = _out;
         this.user = _user;
-        this.socket = _socket;
         this.repositoryFactory = _repositoryFactory;
     }
 
@@ -190,19 +177,15 @@ public class SVNServerSession
     public void run()
     {
         try {
+
             this.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
                             new ListElement(1, 2, new ListElement(),
                                     new ListElement(Word.EDIT_PIPELINE, Word.SVNDIFF1, Word.ABSENT_ENTRIES, Word.COMMIT_REVPRODS,
                                                     Word.DEPTH,Word.LOG_REVPROPS))));
 
-
-//            this.out.write("( success ( 2 2 ( ) ( edit-pipeline svndiff1 absent-entries commit-revprops depth log-revprops  ) ) ) ".getBytes("UTF-8"));
-//            this.out.flush();
-System.out.println("writen");
-Thread.sleep(100);
-
             final ListElement ret = this.readItemList();
+
 final String hostName = ret.getValue().get(2).getValue().toString();
 
 URI u = new URI(hostName);
@@ -244,6 +227,7 @@ this.writeItemList(
 //( CRAM-MD5 ( ) )
 this.readItemList();
 this.out.write("( step ( 67:<17436824594780123943.1238264217403356@tim-moxters-macbook-2.local> ) ) ".getBytes());
+this.out.flush();
 
 ListElement le = new ListElement();
 System.out.println(""+le.readElement(this.in));
@@ -281,7 +265,6 @@ System.out.println(""+le.readElement(this.in));
 
             ListElement items = this.readItemList();
             while (items != null)  {
-Thread.sleep(10);
                 switch (items.getValue().get(0).getWord())  {
                     case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
                     case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
@@ -305,20 +288,9 @@ Thread.sleep(10);
         } catch (final IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
-        } catch (final InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
         } catch (final URISyntaxException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
-        }
-
-        if (this.socket != null)  {
-            try {
-                this.socket.close();
-            } catch (final IOException e) {
-                e.printStackTrace();
-            }
         }
 
         System.err.println("close session");
@@ -1239,6 +1211,7 @@ System.out.println("");
         for (final ListElement list : _lists)  {
             if (LOGGER.isTraceEnabled())  {
 list.write(System.err);
+System.err.println("");
             }
             list.write(this.out);
         }

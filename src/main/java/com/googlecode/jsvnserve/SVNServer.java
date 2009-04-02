@@ -20,9 +20,16 @@
 
 package com.googlecode.jsvnserve;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+
+import org.apache.mina.core.service.IoAcceptor;
+import org.apache.mina.core.session.IoSession;
+import org.apache.mina.handler.stream.StreamIoHandler;
+import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 
 import com.googlecode.jsvnserve.api.IRepositoryFactory;
 
@@ -32,11 +39,13 @@ import com.googlecode.jsvnserve.api.IRepositoryFactory;
  * @version $Id$
  */
 public class SVNServer
-        extends Thread
 {
     /**
      * Factory to create new repository instances depending on the logged in
      * user and path.
+     *
+     * @see #setRepositoryFactory(IRepositoryFactory)
+     * @see SVNServerHandler#processStreamIo(IoSession, InputStream, OutputStream)
      */
     private IRepositoryFactory repositoryFactory;
 
@@ -45,7 +54,10 @@ public class SVNServer
      */
     private int port = 3690;
 
-
+    /**
+     *
+     * @param _repositoryFactory
+     */
     public void setRepositoryFactory(final IRepositoryFactory _repositoryFactory)
     {
         this.repositoryFactory = _repositoryFactory;
@@ -61,41 +73,57 @@ public class SVNServer
         this.port = _port;
     }
 
-    @Override
-    public void run()
+    /**
+     * Starts the SVN server by using as acceptor {@link NioSocketAcceptor}.
+     * The handler {@link SVNServerHandler} is used and bind to port
+     * {@link #port}.
+     *
+     * @see #port
+     */
+    public void start()
+            throws IOException
     {
-        ServerSocket socket;
-        try {
-            socket = new ServerSocket(this.port);
-        } catch (final IOException e) {
-            e.printStackTrace();
-            throw new Error("Server socket for port " + this.port + " could not be created:", e);
+        final IoAcceptor acceptor = new NioSocketAcceptor();
+        acceptor.setHandler(new SVNServerHandler());
+        acceptor.bind(new InetSocketAddress(this.port));
+    }
+
+    /**
+     * SVN server handler with stream to start a new session instance from
+     * {@link SVNServerSession}.
+     */
+    class SVNServerHandler
+            extends StreamIoHandler
+    {
+        /**
+         * Starts a new SVN server session. Because the client SVN kit could
+         * not handle unbuffered output stream, the output stream is embedded
+         * within a buffered output stream.
+         *
+         * @param _iosession    IO session
+         * @param _in           input stream
+         * @param _out          output stream
+         */
+        @Override
+        protected void processStreamIo(final IoSession _iosession,
+                                       final InputStream _in,
+                                       final OutputStream _out)
+        {
+            SVNServerSession  svnServer = new SVNServerSession(_in,
+                                                               new BufferedOutputStream(_out),
+                                                               null,
+                                                               SVNServer.this.repositoryFactory);
+            svnServer.start();
         }
 
-        while (true)  {
-            final Socket clientSocket;
-            try {
-                System.out.println("waiting...");
-                clientSocket = socket.accept();
-            } catch (final IOException e) {
-                e.printStackTrace();
-                throw new Error("Server socket could not be accepted.", e);
-            }
+        @Override
+        public void sessionClosed(IoSession session)
+        throws Exception
+        {
+            System.out.println("sessionClosed.start");
+super.sessionClosed(session);
+System.out.println("sessionClosed.end");
 
-            try {
-System.out.println("hallo.1");
-                clientSocket.setSoTimeout(20000);
-System.out.println("hallo.2");
-                SVNServerSession  svnServer = new SVNServerSession(clientSocket,
-                                                                   clientSocket.getInputStream(),
-                                                                   clientSocket.getOutputStream(),
-                                                                   "testuser",
-                                                                   this.repositoryFactory);
-System.out.println("hallo.3");
-                svnServer.start();
-            } catch (final IOException e) {
-                e.printStackTrace();
-            }
         }
     }
 }
