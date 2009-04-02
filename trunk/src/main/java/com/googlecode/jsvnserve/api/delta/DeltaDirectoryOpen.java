@@ -46,8 +46,8 @@ class DeltaDirectoryOpen
     }
 
     @Override
-    public void writeOpen(final SVNServerSession _session,
-                          final String _parentToken)
+    protected void writeOpen(final SVNServerSession _session,
+                             final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
         _session.writeItemList(

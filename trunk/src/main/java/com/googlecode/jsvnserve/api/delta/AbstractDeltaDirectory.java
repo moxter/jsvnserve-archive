@@ -48,7 +48,7 @@ abstract class AbstractDeltaDirectory
     }
 
     @Override
-    public void writeClose(SVNServerSession _session)
+    protected void writeClose(SVNServerSession _session)
             throws UnsupportedEncodingException, IOException
     {
         _session.writeItemList(new ListElement(Word.CLOSE_DIR,
