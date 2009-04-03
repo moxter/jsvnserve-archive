@@ -20,6 +20,7 @@
 
 package com.googlecode.jsvnserve;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -31,6 +32,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.sasl.Sasl;
+import javax.security.sasl.SaslException;
+import javax.security.sasl.SaslServer;
+import javax.security.sasl.SaslServerFactory;
+
+import org.apache.mina.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +62,8 @@ import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.StringElement;
 import com.googlecode.jsvnserve.element.WordElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.sasl.SaslInputStream;
+import com.googlecode.jsvnserve.sasl.SaslOutputStream;
 
 /**
  * <p>The Subversion protocol is specified in terms of the following
@@ -140,11 +150,9 @@ public class SVNServerSession
     public static final ListElement EMPTY_SUCCESS
             = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement()));
 
-    private final OutputStream out;
+    private OutputStream out;
 
-    private final InputStream in;
-
-    private final String user;
+    private InputStream in;
 
     /**
      * Factory instance to create {@link #repository} instance depending on the
@@ -158,19 +166,61 @@ public class SVNServerSession
     private IRepository repository;
 
     /**
+     * Stores the user for the SVN server session.
+     *
+     * @see #SVNServerSession(InputStream, OutputStream, IRepositoryFactory, String, SaslServerFactory, CallbackHandler)
+     */
+    private String user;
+
+    /**
+     *
+     * @see #SVNServerSession(InputStream, OutputStream, IRepositoryFactory, String, SaslServerFactory, CallbackHandler)
+     */
+    private final SaslServerFactory saslServerFactory;
+
+    /**
+     * Callback handler used for authentication via Sasl with a
+     * {@link SaslServer} if the authentication was not done externally.
+     *
+     * @see #SVNServerSession(InputStream, OutputStream, IRepositoryFactory, String, SaslServerFactory, CallbackHandler)
+     */
+    private final CallbackHandler callbackHandler;
+
+    /**
      * Current root path. Could be changed from the SVN client.
      */
     private String currentPath = "/";
 
+    /**
+     *
+     * @param _in                   input stream
+     * @param _out                  output stream
+     * @param _repositoryFactory    repository factory to get related
+     *                              repository
+     * @param _user                 logged in user if external authentication
+     *                              was used; otherwise must be defined
+     *                              <code>null</code>
+     * @param _saslServerFactory    factory to get {@link SaslServer} instance
+     *                              for authentication if user is defined as
+     *                              <code>null</code> and the authentication
+     *                              must be done from SVN
+     * @param _callbackHandler      callback handler for the authentication if
+     *                              user is defined as <code>null</code> and
+     *                              the authentication must be done from SVN
+     */
     public SVNServerSession(final InputStream _in,
                             final OutputStream _out,
+                            final IRepositoryFactory _repositoryFactory,
                             final String _user,
-                            final IRepositoryFactory _repositoryFactory)
+                            final SaslServerFactory _saslServerFactory,
+                            final CallbackHandler _callbackHandler)
     {
         this.in = _in;
         this.out = _out;
         this.user = _user;
         this.repositoryFactory = _repositoryFactory;
+        this.saslServerFactory = _saslServerFactory;
+        this.callbackHandler = _callbackHandler;
     }
 
     @Override
@@ -186,76 +236,21 @@ public class SVNServerSession
 
             final ListElement ret = this.readItemList();
 
-final String hostName = ret.getValue().get(2).getValue().toString();
+            final String hostName = ret.getValue().get(2).getValue().toString();
 
-URI u = new URI(hostName);
+            final URI hostUri = new URI(hostName);
 
+            // if no user is defined, user must authenticate
+            if (this.user == null)  {
+                this.authenticate(hostUri.getHost());
+            }
 
-    this.repository = this.repositoryFactory.createRepository(this.user,
-            "".equals(u.getPath()) ? "/" : u.getPath());
-/*
-System.out.println("this.getRepository().getRootPath()="+this.getRepository().getRootPath());
-// calculate current path depending of the repository root path
-final File repRootPath = new File(this.getRepository().getRootPath().toString());
-File hostPath = new File(u.getPath());
-// go through all parent directories of the path of the hostname given from client
-// loop as long the host name path is not equal the repository root path
-final Stack<String> paths = new Stack<String>();
-while ((hostPath != null) && !hostPath.equals(repRootPath))  {
-    paths.add(hostPath.getName());
-    hostPath = hostPath.getParentFile();
-}
+            this.repository = this.repositoryFactory.createRepository(this.user,
+                    "".equals(hostUri.getPath()) ? "/" : hostUri.getPath());
 
-File currentPathFile = new File("/");
-while (!paths.isEmpty())  {
-    currentPathFile = new File(currentPathFile, paths.pop());
-}
-
-//this.currentPath = currentPathFile.getPath();
-*/
-
-    URI rootURI = new URI(u.getScheme(),
-            null, u.getHost(), u.getPort(),
-            this.getRepository().getRepositoryPath().toString(), null, null);
-
-  //( success ( ( CRAM-MD5 ) 36:cf646e2a-176c-4309-8bfa-14680e0fdf19 ) )
-this.writeItemList(
-            new ListElement(Word.STATUS_SUCCESS,
-                    new ListElement(
-                            new ListElement(new WordElement("CRAM-MD5")),
-                                            this.getRepository().getUUID().toString())));
-//( CRAM-MD5 ( ) )
-this.readItemList();
-this.out.write("( step ( 67:<17436824594780123943.1238264217403356@tim-moxters-macbook-2.local> ) ) ".getBytes());
-this.out.flush();
-
-ListElement le = new ListElement();
-System.out.println(""+le.readElement(this.in));
-
-// 36:tim 04b92c9e4f06bb6817195f209b52fbcb
-//this.readItemList();
-
-
-/*
-            this.writeItemList(
-                    new ListElement(Word.STATUS_SUCCESS,
-                            new ListElement(
-                                    new ListElement(new WordElement("ANONYMOUS"),
-                                                    new WordElement("EXTERNAL")),
-                                                    this.getRepository().getUUID().toString())));
-*/
- //           this.readItemList();
-//            System.out.println("list2="+this.readItemList(in));
-/*
-                out.write("( step ( 4:user ) ) ".getBytes("UTF-8"));
-                out.flush();
-                Thread.sleep(10);
-                if (in.available() > 0)  {
-                    System.out.println("list2="+readItemList(in));
-                }
-
-*/
-            this.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement()));
+            URI rootURI = new URI(hostUri.getScheme(),
+                    null, hostUri.getHost(), hostUri.getPort(),
+                    this.getRepository().getRepositoryPath().toString(), null, null);
 
             this.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
@@ -294,6 +289,156 @@ System.out.println(""+le.readElement(this.in));
         }
 
         System.err.println("close session");
+    }
+
+    /**
+     *
+     * @param _host     name of the host for which user must authenticate
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @see #updateStreams(SaslServer)
+     */
+    protected void authenticate(final String _host)
+            throws UnsupportedEncodingException, IOException
+    {
+        // authentication is required
+        final ListElement mechanisms = new ListElement();
+        for (final String mechanism : this.saslServerFactory.getMechanismNames(null))  {
+            mechanisms.add(new WordElement(mechanism));
+        }
+
+        // return to SVN client list of all authentication mechanisms
+        this.writeItemList(
+                new ListElement(Word.STATUS_SUCCESS,
+                        new ListElement(mechanisms, _host)));
+
+
+        boolean authenticated = false;
+        SaslServer saslServer = null;
+
+        while (!authenticated)  {
+
+            // get selected authentication mechanism from SVN client
+            final ListElement selMechanismList  = this.readItemList();
+            final String selMechanism = selMechanismList.getList().get(0).getString();
+
+            // create new Sasl server depending on selected mechanism from client
+            final Map<String,String> props = new HashMap<String,String>();
+            props.put(Sasl.QOP, "auth, auth-int, auth-conf");
+            props.put(Sasl.POLICY_NOANONYMOUS, "true");
+            props.put(Sasl.POLICY_NOPLAINTEXT, "true");
+            props.put(Sasl.REUSE, "false");
+            saslServer = this.saslServerFactory.createSaslServer(selMechanism,
+                                                                 "svn",
+                                                                 _host,
+                                                                 props,
+                                                                 this.callbackHandler);
+
+            final boolean isCramMD5 = "CRAM-MD5".equals(selMechanism);
+
+            // get initial response from SVN client
+            final List<AbstractElement<?>> initialResponseList = selMechanismList.getList().get(1).getList();
+            byte[] response = initialResponseList.isEmpty()
+                              ? new byte[]{}
+                              : initialResponseList.get(0).getString().getBytes();
+
+            // RFC2831 (DIGEST-MD5) says the client MAY provide an initial response
+            // on subsequent authentication. Java SASL does not (currently) support
+            // this and throws an exception if we try. This violates the RFC, so we
+            // just strip any initial token.
+            if (selMechanism.equals("DIGEST-MD5"))  {
+                response = new byte[]{};
+            }
+
+            byte[] request = saslServer.evaluateResponse(response);
+            final ListElement dummyList = new ListElement();
+            SaslException exeption = null;
+            while (!saslServer.isComplete() && (exeption == null))  {
+                if (SVNServerSession.LOGGER.isTraceEnabled())  {
+                    SVNServerSession.LOGGER.trace("REQ>: ( step ( {}:{} ) ) ", request.length, new String(request));
+                }
+
+                // send step to client
+                this.out.write("( step ( ".getBytes());
+                // if not CRAM-MD5 => encode base64
+                if (!isCramMD5)  {
+                    request = Base64.encodeBase64(request);
+                }
+                this.out.write(String.valueOf(request.length).getBytes());
+                this.out.write(':');
+                this.out.write(request);
+                this.out.write(" ) ) ".getBytes());
+                this.out.flush();
+
+                // get response from client
+                final AbstractElement<?> responseElem = dummyList.readElement(this.in);
+                response = isCramMD5
+                           ? responseElem.getString().getBytes("UTF8")
+                           : Base64.decodeBase64(responseElem.getString().getBytes());
+
+                SVNServerSession.LOGGER.trace("RES<: {}", new String(response));
+                try  {
+                    request = saslServer.evaluateResponse(response);
+                } catch(final SaslException ex)  {
+                    exeption = ex;
+                }
+            }
+
+            if (exeption == null)  {
+                if (isCramMD5)  {
+                    this.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement()));
+                } else  {
+                    this.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement(new String(Base64.encodeBase64(request)))));
+                }
+                this.user = saslServer.getAuthorizationID();
+                authenticated = true;
+            } else  {
+                this.writeItemList(new ListElement(Word.STATUS_FAILURE,
+                        new ListElement(exeption.getMessage())));
+            }
+        }
+
+        this.updateStreams(saslServer);
+    }
+
+    /**
+     * Depending on the quality-of-protection property of the Sasl server the
+     * streams {@link #in} and {@link #out} must by encrypted.
+     *
+     * @param _saslServer   Sasl server
+     * @see #in
+     * @see #out
+     */
+    protected void updateStreams(final SaslServer _saslServer)
+    {
+        final String qop = (String) _saslServer.getNegotiatedProperty(Sasl.QOP);
+        if ("auth-int".equals(qop) || "auth-conf".equals(qop))  {
+
+            // get output buffer size
+            final String outBuffSizeStr = (String) _saslServer.getNegotiatedProperty(Sasl.RAW_SEND_SIZE);
+            int outBuffSize = 1000;
+            if (outBuffSizeStr != null) {
+                try {
+                    outBuffSize = Integer.parseInt(outBuffSizeStr);
+                } catch (NumberFormatException nfe) {
+                    outBuffSize = 1000;
+                }
+            }
+
+            // get input buffer size
+            final String inBuffSizeStr = (String) _saslServer.getNegotiatedProperty(Sasl.MAX_BUFFER);
+            int inBuffSize = 1000;
+            if (inBuffSizeStr != null)  {
+                try {
+                    inBuffSize = Integer.parseInt(inBuffSizeStr);
+                } catch (final NumberFormatException nfe) {
+                    inBuffSize = 1000;
+                }
+            }
+
+            this.out = new SaslOutputStream(_saslServer, outBuffSize, this.out);
+            this.in = new SaslInputStream(_saslServer, inBuffSize, this.in);
+        }
     }
 
     /**
@@ -1197,9 +1342,10 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
                 throw new Error("fehler");
             }
             list.read(this.in);
-            if (LOGGER.isTraceEnabled())  {
-list.write(System.out);
-System.out.println("");
+            if (SVNServerSession.LOGGER.isTraceEnabled())  {
+                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+                list.write(byteArrayOut);
+                SVNServerSession.LOGGER.trace("RES<: {}", byteArrayOut.toString());
             }
         }
         return (ch == -1) ? null : list;
@@ -1209,14 +1355,12 @@ System.out.println("");
             throws UnsupportedEncodingException, IOException
     {
         for (final ListElement list : _lists)  {
-            if (LOGGER.isTraceEnabled())  {
-list.write(System.err);
-System.err.println("");
+            if (SVNServerSession.LOGGER.isTraceEnabled())  {
+                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+                list.write(byteArrayOut);
+                SVNServerSession.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
             }
             list.write(this.out);
-        }
-        if (LOGGER.isTraceEnabled())  {
-System.err.println("");
         }
         this.out.flush();
     }
@@ -1225,9 +1369,10 @@ System.err.println("");
             throws UnsupportedEncodingException, IOException
     {
         for (final ListElement list : _lists)  {
-            if (LOGGER.isTraceEnabled())  {
-list.write(System.err);
-System.err.println("");
+            if (SVNServerSession.LOGGER.isTraceEnabled())  {
+                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+                list.write(byteArrayOut);
+                SVNServerSession.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
             }
             list.write(this.out);
         }

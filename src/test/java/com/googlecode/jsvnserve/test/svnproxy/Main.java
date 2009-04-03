@@ -36,10 +36,10 @@ public class Main
     public static void main(final String... _args)
             throws IOException, InterruptedException, SVNException
     {
-
         SVNServer svnServer = new SVNServer();
         svnServer.setPort(9999);
         svnServer.setRepositoryFactory(new RepositoryFactory());
+        svnServer.setCallbackHandler(new SVNProxyCallbackHandler());
         svnServer.start();
         Thread.sleep(100000);
 
