@@ -189,18 +189,53 @@ public interface IRepository
     /**
      *
      * @param _revision             update revision, if not specified the value
-     *                              is <code>-1</code> and means the HEAD
+     *                              is <code>null</code> and means the HEAD
      *                              revision
      * @param _path                 udate path
      * @param _depth                depth for update, determines the scope
-     * @param _sendCopyFromParams   ?????
      * @param _report               report of current directory structure of
      *                              the client
      * @return
      */
-    public Editor update(final long _revision,
-                              final String _path,
-                              final Depth _depth,
-                              final boolean _sendCopyFromParams,
-                              final ReportList _report);
+    public Editor getStatus(final Long _revision,
+                            final String _path,
+                            final Depth _depth,
+                            final ReportList _report);
+
+    /**
+     * <p>Returns the path locations in revision history. The location of a
+     * path could change from revision to revision, so the method allows to
+     * trace the information of the location in different revision.</p>
+     * <p>For each revision in <code>_revisions</code> a location entry is
+     * returned if for the revision the path exists (maybe with other name).
+     * </p>
+     * <p><b>Example</b><br/>
+     * In revision 1 path &quot;temp&quot; is created. In revision 2
+     * &quot;temp&quot; is copied to &quot;tempcopy&quot;. In revision 3
+     * &quot;tempnew&quot; is created. Current head revision is 8. So
+     * <code>_pegRevision</code> is set to 8.
+     * <ul>
+     * <li>If <code>_path</code> is set to &quot;tempcopy&quot; and the list of
+     *     interesting revisions includes 1, the list of location entries
+     *     returns in this case &quot;temp&quot;, because in revision 2 the
+     *     path was copied from &quot;temp&quot;.</li>
+     * <li>If <code>_path</code> is set to &quot;tempnew&quot; and the list of
+     *     interesting revisions includes 1, for revision 1 is no location
+     *     entry returned, because the path was created first in revision 3.
+     *     </li>
+     * </ul></p>
+     *
+     * @param _pegRevision  revision in which <code>_path</code> is first
+     *                      looked up
+     * @param _path         path for which the locations are looked up
+     * @param _revisions    list of revisions for which the locations are
+     *                      looked up; if for a revision the <code>_path</code>
+     *                      doesn't exists, the revision is ignored (and not
+     *                      returned in the location entries)
+     * @return all existing location entries depending on the
+     *         <code>_revisions</code>
+     */
+    public LocationEntries getLocations(final long _pegRevision,
+                                        final String _path,
+                                        final long... _revisions);
 }
