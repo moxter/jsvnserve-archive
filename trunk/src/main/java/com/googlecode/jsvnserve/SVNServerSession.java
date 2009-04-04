@@ -47,6 +47,7 @@ import com.googlecode.jsvnserve.api.DirEntry;
 import com.googlecode.jsvnserve.api.DirEntryList;
 import com.googlecode.jsvnserve.api.IRepository;
 import com.googlecode.jsvnserve.api.IRepositoryFactory;
+import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
 import com.googlecode.jsvnserve.api.ReportList;
@@ -54,8 +55,6 @@ import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.ChangedPath;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
-import com.googlecode.jsvnserve.api.ReportList.DeletePath;
-import com.googlecode.jsvnserve.api.ReportList.SetPath;
 import com.googlecode.jsvnserve.api.delta.Editor;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
@@ -268,12 +267,14 @@ public class SVNServerSession
                     case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
                     case GET_FILE:          this.svnGetFile(items.getList().get(1).getList());break;
                     case GET_LATEST_REV:    this.svnGetLatestRev();break;
+                    case GET_LOCATIONS:     this.svnGetLocations(items.getList().get(1).getList());break;
                     case GET_LOCK:          this.svnGetLock(items.getList().get(1).getList());break;
                     case GET_LOCKS:         this.svnGetLocks(items.getList().get(1).getList());break;
                     case LOCK_MANY:         this.svnLockMany(items.getList().get(1).getList());break;
                     case LOG:               this.svnLog(items.getList().get(1).getList());break;
                     case REPARENT:          this.svnReparent(items.getList().get(1).getList());break;
                     case STAT:              this.svnStat(items.getList().get(1).getList());break;
+                    case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
                     case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
                     case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
                     default:                System.err.println("unkown key " + items.getValue().get(0).getWord());break;
@@ -1233,57 +1234,11 @@ public class SVNServerSession
         this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         final ReportList report = new ReportList();
-
-        ListElement list = this.readItemList();
-        Word key = list.getList().get(0).getWord();
-        while ((key != Word.FINISH_REPORT) && (key != Word.ABORT_REPORT))  {
-            final List<AbstractElement<?>> params = list.getList().get(1).getList();
-            switch (list.getList().get(0).getWord())  {
-                case SET_PATH:
-                    final int size = params.size();
-                    // extract lock token
-                    final String lockToken;
-                    if (size > 3)  {
-                        final List<AbstractElement<?>> lockTokenParams = params.get(3).getList();
-                        if (!lockTokenParams.isEmpty())  {
-                            lockToken = lockTokenParams.get(0).getString();
-                        } else  {
-                            lockToken = null;
-                        }
-                    } else  {
-                        lockToken = null;
-                    }
-                    // extract depth
-                    final Depth pathDepth;
-                    if (size > 4)  {
-                        pathDepth = Depth.valueOf(params.get(4).getWord());
-                    } else  {
-                        pathDepth = Depth.UNKNOWN;
-                    }
-
-                    report.add(new SetPath(params.get(0).getString(),
-                                           params.get(1).getNumber(),
-                                           (params.get(2).getWord() == Word.BOOLEAN_TRUE),
-                                           lockToken,
-                                           pathDepth));
-                    break;
-                case DELETE_PATH:
-                    report.add(new DeletePath(params.get(0).getString()));
-                    break;
-                case LINK_PATH:
-                    break;
-            }
-            list = this.readItemList();
-            key = list.getList().get(0).getWord();
-        }
+        report.read(this);
 
         this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
-        final Editor deltaEditor = this.getRepository().update(revision,
-                                                               path,
-                                                               depth,
-                                                               sendCopyFromParameters,
-                                                               report);
+        final Editor deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
 
         // editor mode
         deltaEditor.write(this);
@@ -1295,6 +1250,74 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     throw new Error("update does not work");
 }
 
+    }
+
+    /**
+     * Returns for given path the status
+     *
+     * <p><b>SVN Call:</b></br>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( status (</nobr></code>
+     *     </td></tr>
+     * <tr><td  rowspan="4"></td><td><code style="color:green">
+     *     target:<a href="#string">string</a></code></td>
+     *     <td>target path for which a status is searched</td></tr>
+     * <tr><td><code style="color:green">
+     *     recurse:<a href="#bool">bool</a></code></td>
+     *     <td>if true and status scope is a directory or unknown (not
+     *         defined), descends recursively; otherwise not</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?( ?rev:<a href="#number">number</a> )</code></td>
+     *     <td>revision to get status against; if not defined HEAD revision is
+     *         used</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?depth:<a href="#depth">depth</a></code></td>
+     *     <td>defines the depth scope</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * @param _parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @todo description switch to report command set, switch to editor
+     *       command set, empty response
+     */
+    protected void svnStatus(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // status path
+        final String path = this.buildPath(_parameters.get(0).getString());
+        // recurse?
+        final boolean recurse = (_parameters.get(1).getWord() == Word.BOOLEAN_TRUE);
+        // revision number
+        final List<AbstractElement<?>> revisionParams = (_parameters.size() > 1) ? _parameters.get(2).getList() : null;
+        final Long revision = ((revisionParams == null) || revisionParams.isEmpty())
+                              ? null
+                              : revisionParams.get(0).getNumber();
+        // depth
+        Depth depth = (_parameters.size() > 2)
+                      ? Depth.valueOf(_parameters.get(3).getWord())
+                      : Depth.UNKNOWN;
+        if (depth == null)  {
+            depth = Depth.UNKNOWN;
+        }
+        if ((depth == Depth.UNKNOWN) && recurse)  {
+            depth = Depth.INFINITY;
+        }
+
+        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final ReportList report = new ReportList();
+        report.read(this);
+
+        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final Editor deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
+
+        // editor mode
+        deltaEditor.write(this);
+
+        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -1426,6 +1449,58 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     }
 
     /**
+     * Returns the path locations in revision history.
+     *
+     * <p><b>SVN Call:</b></br>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( get-locations (</nobr></code>
+     *     </td></tr>
+     * <tr><td  rowspan="3"></td><td><code style="color:green">
+     *     path:<a href="#string">string</a></code></td>
+     *     <td>path to look up</td></tr>
+     * <tr><td><code style="color:green">
+     *     peg-rev:<a href="#number">number</a></code></td>
+     *     <td>revision number in which the path are looked up</td></tr>
+     * <tr><td><code style="color:green">
+     *     ( rev:<a href="#number">number</a> ... )</code></td>
+     *     <td>list of interesting revisions</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>SVN Response:</b></br>
+     * Before the reponse is sent, the server sends all location entries (see
+     * {@link LocationEntries#write(SVNServerSession)}). The response itself
+     * is the empty success response {@link #EMPTY_SUCCESS}.</p>
+     *
+     * @param _parameters   SVN get locations parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @see LocationEntries
+     */
+    protected void svnGetLocations(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // location path
+        final String path = this.buildPath(_parameters.get(0).getString());
+        // peg revision number
+        final long pegRevision = _parameters.get(1).getNumber();
+        // interesting revisions
+        final List<AbstractElement<?>> revList = _parameters.get(2).getList();
+        final long[] revisions = new long[revList.size()];
+        int idx = 0;
+        for (final AbstractElement<?> revElem : revList)  {
+            revisions[idx++] = revElem.getNumber();
+        }
+
+        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final LocationEntries entries = this.repository.getLocations(pegRevision, path, revisions);
+        entries.write(this);
+
+        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+    }
+
+    /**
      *
      *
      * @param _path
@@ -1442,7 +1517,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         return completePath.toString();
     }
 
-    protected ListElement readItemList()
+    public ListElement readItemList()
             throws IOException
     {
         final ListElement list = new ListElement();
@@ -1489,6 +1564,14 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             }
             list.write(this.out);
         }
+        this.out.flush();
+    }
+
+    public void write(final String _text)
+            throws UnsupportedEncodingException, IOException
+    {
+        SVNServerSession.LOGGER.trace("REQ>: {}", _text);
+        this.out.write(_text.getBytes("UTF8"));
         this.out.flush();
     }
 

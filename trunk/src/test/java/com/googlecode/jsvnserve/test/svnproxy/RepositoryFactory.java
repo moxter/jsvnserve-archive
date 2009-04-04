@@ -59,9 +59,11 @@ import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.internal.io.fs.FSRepositoryFactory;
 import org.tmatesoft.svn.core.internal.io.svn.SVNRepositoryFactoryImpl;
 import org.tmatesoft.svn.core.io.ISVNEditor;
+import org.tmatesoft.svn.core.io.ISVNLocationEntryHandler;
 import org.tmatesoft.svn.core.io.ISVNLockHandler;
 import org.tmatesoft.svn.core.io.ISVNReporter;
 import org.tmatesoft.svn.core.io.ISVNReporterBaton;
+import org.tmatesoft.svn.core.io.SVNLocationEntry;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 import org.tmatesoft.svn.core.wc.SVNClientManager;
@@ -71,6 +73,7 @@ import com.googlecode.jsvnserve.api.DirEntry;
 import com.googlecode.jsvnserve.api.DirEntryList;
 import com.googlecode.jsvnserve.api.IRepository;
 import com.googlecode.jsvnserve.api.IRepositoryFactory;
+import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
 import com.googlecode.jsvnserve.api.ReportList;
@@ -500,10 +503,32 @@ System.out.println("temp="+temp);
             return lockList;
         }
 
-        public Editor update(final long _revision,
+        public LocationEntries getLocations(final long _pegRevision,
+                                            final String _path,
+                                            final long... _revisions)
+        {
+            final LocationEntries entries = new LocationEntries();
+            try {
+                this.svnRepository.getLocations(_path, _pegRevision, _revisions,
+                        new ISVNLocationEntryHandler()  {
+
+                            public void handleLocationEntry(final SVNLocationEntry _svnlocationentry)
+                                    throws SVNException
+                            {
+                                entries.add(_svnlocationentry.getRevision(),
+                                            _svnlocationentry.getPath());
+                            }
+                        });
+            } catch (final SVNException e) {
+                e.printStackTrace();
+            }
+
+            return entries;
+        }
+
+        public Editor getStatus(final Long _revision,
                                   final String _path,
                                   final Depth _depth,
-                                  final boolean _sendCopyFromParams,
                                   final ReportList _report)
         {
             SVNEditor editor = new SVNEditor();
@@ -519,7 +544,10 @@ System.out.println("temp="+temp);
 
 try {
     // TODO: path could not start with / (why?)
-    this.svnRepository.update(_revision, _path.substring(1), svnDepth, _sendCopyFromParams, new ISVNReporterBaton()  {
+    this.svnRepository.status((_revision != null) ? _revision : -1,
+                              _path.substring(1),
+                              svnDepth,
+                              new ISVNReporterBaton()  {
 
         public void report(ISVNReporter isvnreporter) throws SVNException
         {
