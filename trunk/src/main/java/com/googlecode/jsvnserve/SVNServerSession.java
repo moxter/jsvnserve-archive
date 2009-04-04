@@ -243,6 +243,9 @@ public class SVNServerSession
             // if no user is defined, user must authenticate
             if (this.user == null)  {
                 this.authenticate(hostUri.getHost());
+            // otherwise no autorization needed!
+            } else  {
+                this.writeItemList(NO_AUTHORIZATION_NEEDED);
             }
 
             this.repository = this.repositoryFactory.createRepository(this.user,
@@ -292,16 +295,114 @@ public class SVNServerSession
     }
 
     /**
+     * <p>Makes the authentication for the SVN protocol (if not tunneled via
+     * SSH). The authentication of an user is done always with Sasl server.
+     * Depending on the authentication mechanism, the communication tokens for
+     * each step are Base64 coded (for <code>CRAM-MD5</code> the tokens are NOT
+     * Base64 coded, because for <code>CRAM-MD5</code> Sasl was not used from
+     * subversion).</p>
+     * <p>For authentication mechanism <code>DIGEST-MD5</code> the used Sasl
+     * implementation from subversion could handle subsequent authentication
+     * which is not supported from Java. So the initialize token must be always
+     * reseted for this use case.</p>
+     * <p>Depending of the used authentication mechanism, the input and output
+     * stream must be encrypted (depends on the quality-of-protection property
+     * of Sasl). This SVN server supports all quality-of-protections. If the
+     * SVN client uses them, the input and output streams {@link #in} and
+     * {@link #out} are filtered (see {@link #updateStreams(SaslServer)}).</p>
+     * <p>If the user could be authenticated, the user name in {@link #user}
+     * is updated.</p>
      *
-     * @param _host     name of the host for which user must authenticate
+     * <h3>SVN communication</h3>
+     * <p><b>Authentication Request (from server)</b><br/>
+     * After the server and client exchanges their supported SVN features,
+     * the SVN sends authentication requests with a list of all supported
+     * authentication mechanism.
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( success (</nobr></code></td></tr>
+     * <tr><td rowspan="2"></td><td><code style="color:green">( mech:<a href="#word">word</a> )</code></td>
+     *     <td>list of all authentication mechanism supported from this Sasl
+     *         server</td></tr>
+     * <tr><td><code style="color:green">realm:<a href="#string">string</a></code></td>
+     *     <td>realm of ths SVN server, value of parameter <code>_host</code>
+     *         is used</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>Authentication Response (from client)</b><br/>
+     * Then the client response with the selected authentication mechanism
+     * and, if required, from selected authentication mechanism, the initial
+     * token. For <code>DIGEST-MD5</code> the initial token is used for
+     * subsequent authentication (see
+     * <a href="http://www.ietf.org/rfc/rfc2831.txt">RFC 2831</a>), which is
+     * not supported by Java. So in this case the initial response is set from
+     * the method automatically to a zero length string.
+     * <table>
+     * <tr><td><code style="color:green">(</code></td></tr>
+     * <tr><td rowspan="2"></td><td><code style="color:green">mech:<a href="#word">word</a></code></td>
+     *     <td>from SVN client selected authentication mechanism</td></tr>
+     * <tr><td><code style="color:green">( ?token:<a href="#string">string</a> )</code></td>
+     *     <td>initial token for the authentication</td></tr>
+     * <tr><td><code style="color:green">)</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>Step Challenge (from server)</b><br/>
+     * For each step of the authentication the server sends the token within a
+     * step challenge. The token must be Base64 encoded if the authentication
+     * mechanism is not <code>CRAM-MD5</code>.
+     * <table>
+     * <tr><td><code style="color:green">( step (</code></td></tr>
+     * <tr><td></td><td><code style="color:green">token:<a href="#string">string</a></code></td>
+     *     <td>token of the authentication step (must be Base64 encoded if not
+     *         <code>CRAM-MD5</code></td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>Step Challenge (answer from client)</b><br/>
+     * After a step challenge from the server, the client answers with a single
+     * response token. The response token is Base64 encoded for non
+     * <code>CRAM-MD5</code> authentication mechanism.<br/>
+     * <code style="color:green">token:<a href="#string">string</a></code></p>
+     *
+     * <p><b>Success Challenge (from server)</b><br/>
+     * If the authentication for the user is successfully, the success
+     * challenge is returned to the client. The returned token depends on the
+     * Sasl authentication mechanism. If the mechanism is not
+     * <code>CRAM-MD5</code>, the token is Base64 encoded.</code>
+     * <table>
+     * <tr><td><code style="color:green">( success (</code></td></tr>
+     * <tr><td></td><td><code style="color:green">?token:<a href="#string">string</a></code></td>
+     *     <td>optional token if authentication was successfully (Base64
+     *         encoded if not <code>CRAM-MD5</code></td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>Failure Challenge (from server)</b><br/>
+     * If the authentication failed or some answer from the client was not
+     * correct, a failure challenge is sent from the SVN server. The failure
+     * includes a message (which is never Base64 encoded!). The error text from
+     * the thrown exception is used as failure message.</br>
+     * In this case the authentication exchange is unsuccessful. The client
+     * could could give up or restart the authentication process by making
+     * another <b>Authentication Response (from client)</b>.
+     * <table>
+     * <tr><td><code style="color:green">( failure (</code></td></tr>
+     * <tr><td></td><td><code style="color:green">message:<a href="#string">string</a></code></td>
+     *     <td>failure message (real text, not encoded!)</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * @param _host     name of the host for which user must authenticate, also
+     *                  used as realm for <code>DIGEST-MD5</code>
      * @throws UnsupportedEncodingException
      * @throws IOException
      * @see #updateStreams(SaslServer)
+     * @see #user
      */
     protected void authenticate(final String _host)
             throws UnsupportedEncodingException, IOException
     {
-        // authentication is required
+        // evaluate list of authentication mechanism
         final ListElement mechanisms = new ListElement();
         for (final String mechanism : this.saslServerFactory.getMechanismNames(null))  {
             mechanisms.add(new WordElement(mechanism));
@@ -376,7 +477,9 @@ public class SVNServerSession
                            ? responseElem.getString().getBytes("UTF8")
                            : Base64.decodeBase64(responseElem.getString().getBytes());
 
-                SVNServerSession.LOGGER.trace("RES<: {}", new String(response));
+                if (SVNServerSession.LOGGER.isTraceEnabled())  {
+                    SVNServerSession.LOGGER.trace("RES<: {}", new String(response));
+                }
                 try  {
                     request = saslServer.evaluateResponse(response);
                 } catch(final SaslException ex)  {
@@ -384,6 +487,7 @@ public class SVNServerSession
                 }
             }
 
+            // no exception => user is authenticated
             if (exeption == null)  {
                 if (isCramMD5)  {
                     this.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement()));
@@ -392,6 +496,7 @@ public class SVNServerSession
                 }
                 this.user = saslServer.getAuthorizationID();
                 authenticated = true;
+            // exception => user is NOT authenticated
             } else  {
                 this.writeItemList(new ListElement(Word.STATUS_FAILURE,
                         new ListElement(exeption.getMessage())));
@@ -402,12 +507,20 @@ public class SVNServerSession
     }
 
     /**
-     * Depending on the quality-of-protection property of the Sasl server the
-     * streams {@link #in} and {@link #out} must by encrypted.
+     * <p>Depending on the quality-of-protection property of the Sasl server
+     * the streams {@link #in} and {@link #out} must by encrypted.</p>
+     * <p>If the  quality-of-protection property is set to
+     * <code>auth-int</code> or </code>auth-conf</code>, the input and output
+     * streams {@link #in} and {@link #out} must be encrypted. This is done by
+     * filtering the original streams via the {@link SaslInputStream} and
+     * {@link SaslOutputStream}.</p>
      *
      * @param _saslServer   Sasl server
      * @see #in
      * @see #out
+     * @see SaslInputStream
+     * @see SaslOutputStream
+     * @see #authenticate(String)
      */
     protected void updateStreams(final SaslServer _saslServer)
     {
