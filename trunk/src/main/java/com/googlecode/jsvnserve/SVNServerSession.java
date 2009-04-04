@@ -20,7 +20,6 @@
 
 package com.googlecode.jsvnserve;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -61,8 +60,6 @@ import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.StringElement;
 import com.googlecode.jsvnserve.element.WordElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
-import com.googlecode.jsvnserve.sasl.SaslInputStream;
-import com.googlecode.jsvnserve.sasl.SaslOutputStream;
 
 /**
  * <p>The Subversion protocol is specified in terms of the following
@@ -149,9 +146,10 @@ public class SVNServerSession
     public static final ListElement EMPTY_SUCCESS
             = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement()));
 
-    private OutputStream out;
-
-    private InputStream in;
+    /**
+     * Holds both streams, the input and output stream.
+     */
+    private final SVNSessionStreams streams;
 
     /**
      * Factory instance to create {@link #repository} instance depending on the
@@ -214,8 +212,7 @@ public class SVNServerSession
                             final SaslServerFactory _saslServerFactory,
                             final CallbackHandler _callbackHandler)
     {
-        this.in = _in;
-        this.out = _out;
+        this.streams = new SVNSessionStreams(this, _out, _in);
         this.user = _user;
         this.repositoryFactory = _repositoryFactory;
         this.saslServerFactory = _saslServerFactory;
@@ -227,13 +224,13 @@ public class SVNServerSession
     {
         try {
 
-            this.writeItemList(
+            this.streams.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
                             new ListElement(1, 2, new ListElement(),
                                     new ListElement(Word.EDIT_PIPELINE, Word.SVNDIFF1, Word.ABSENT_ENTRIES, Word.COMMIT_REVPRODS,
                                                     Word.DEPTH,Word.LOG_REVPROPS))));
 
-            final ListElement ret = this.readItemList();
+            final ListElement ret = this.streams.readItemList();
 
             final String hostName = ret.getValue().get(2).getValue().toString();
 
@@ -244,7 +241,7 @@ public class SVNServerSession
                 this.authenticate(hostUri.getHost());
             // otherwise no autorization needed!
             } else  {
-                this.writeItemList(NO_AUTHORIZATION_NEEDED);
+                this.streams.writeItemList(NO_AUTHORIZATION_NEEDED);
             }
 
             this.repository = this.repositoryFactory.createRepository(this.user,
@@ -254,13 +251,13 @@ public class SVNServerSession
                     null, hostUri.getHost(), hostUri.getPort(),
                     this.getRepository().getRepositoryPath().toString(), null, null);
 
-            this.writeItemList(
+            this.streams.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
                             new ListElement(this.getRepository().getUUID().toString(),
                                             rootURI.toASCIIString(),
                                             new ListElement(Word.MERGEINFO))));
 
-            ListElement items = this.readItemList();
+            ListElement items = this.streams.readItemList();
             while (items != null)  {
                 switch (items.getValue().get(0).getWord())  {
                     case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
@@ -279,7 +276,7 @@ public class SVNServerSession
                     case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
                     default:                System.err.println("unkown key " + items.getValue().get(0).getWord());break;
                 }
-                items = this.readItemList();
+                items = this.streams.readItemList();
             }
         } catch (final UnsupportedEncodingException e) {
             // TODO Auto-generated catch block
@@ -310,7 +307,8 @@ public class SVNServerSession
      * stream must be encrypted (depends on the quality-of-protection property
      * of Sasl). This SVN server supports all quality-of-protections. If the
      * SVN client uses them, the input and output streams {@link #in} and
-     * {@link #out} are filtered (see {@link #updateStreams(SaslServer)}).</p>
+     * {@link #out} are filtered (see
+     * {@link SVNSessionStreams#updateStreams(SaslServer)}).</p>
      * <p>If the user could be authenticated, the user name in {@link #user}
      * is updated.</p>
      *
@@ -397,7 +395,7 @@ public class SVNServerSession
      *                  used as realm for <code>DIGEST-MD5</code>
      * @throws UnsupportedEncodingException
      * @throws IOException
-     * @see #updateStreams(SaslServer)
+     * @see SVNSessionStreams#updateStreams(SaslServer)
      * @see #user
      */
     protected void authenticate(final String _host)
@@ -410,7 +408,7 @@ public class SVNServerSession
         }
 
         // return to SVN client list of all authentication mechanisms
-        this.writeItemList(
+        this.streams.writeItemList(
                 new ListElement(Word.STATUS_SUCCESS,
                         new ListElement(mechanisms, _host)));
 
@@ -421,7 +419,7 @@ public class SVNServerSession
         while (!authenticated)  {
 
             // get selected authentication mechanism from SVN client
-            final ListElement selMechanismList  = this.readItemList();
+            final ListElement selMechanismList  = this.streams.readItemList();
             final String selMechanism = selMechanismList.getList().get(0).getString();
 
             // create new Sasl server depending on selected mechanism from client
@@ -453,34 +451,30 @@ public class SVNServerSession
             }
 
             byte[] request = saslServer.evaluateResponse(response);
-            final ListElement dummyList = new ListElement();
             SaslException exeption = null;
             while (!saslServer.isComplete() && (exeption == null))  {
-                if (SVNServerSession.LOGGER.isTraceEnabled())  {
-                    SVNServerSession.LOGGER.trace("REQ>: ( step ( {}:{} ) ) ", request.length, new String(request));
-                }
+                // must be done manually because the steps otherwise not traced
+                this.streams.traceWrite("( step ( {}:{} ) ) ", request.length, new String(request));
 
                 // send step to client
-                this.out.write("( step ( ".getBytes());
+                this.streams.writeWithoutFlush("( step ( ");
                 // if not CRAM-MD5 => encode base64
                 if (!isCramMD5)  {
                     request = Base64.encodeBase64(request);
                 }
-                this.out.write(String.valueOf(request.length).getBytes());
-                this.out.write(':');
-                this.out.write(request);
-                this.out.write(" ) ) ".getBytes());
-                this.out.flush();
+                this.streams.writeWithoutFlush(String.valueOf(request.length));
+                this.streams.writeWithoutFlush(':');
+                this.streams.writeWithoutFlush(request);
+                this.streams.writeWithoutFlush(" ) ) ");
+                this.streams.flush();
 
                 // get response from client
-                final AbstractElement<?> responseElem = dummyList.readElement(this.in);
+                final AbstractElement<?> responseElem = this.streams.readElement();
                 response = isCramMD5
                            ? responseElem.getString().getBytes("UTF8")
                            : Base64.decodeBase64(responseElem.getString().getBytes());
 
-                if (SVNServerSession.LOGGER.isTraceEnabled())  {
-                    SVNServerSession.LOGGER.trace("RES<: {}", new String(response));
-                }
+                this.streams.traceRead("{}", new String(response));
                 try  {
                     request = saslServer.evaluateResponse(response);
                 } catch(final SaslException ex)  {
@@ -491,68 +485,21 @@ public class SVNServerSession
             // no exception => user is authenticated
             if (exeption == null)  {
                 if (isCramMD5)  {
-                    this.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement()));
+                    this.streams.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement()));
                 } else  {
-                    this.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement(new String(Base64.encodeBase64(request)))));
+                    this.streams.writeItemList(new ListElement(Word.STATUS_SUCCESS, new ListElement(new String(Base64.encodeBase64(request)))));
                 }
                 this.user = saslServer.getAuthorizationID();
                 authenticated = true;
             // exception => user is NOT authenticated
             } else  {
-                this.writeItemList(new ListElement(Word.STATUS_FAILURE,
-                        new ListElement(exeption.getMessage())));
+                this.streams.writeItemList(
+                        new ListElement(Word.STATUS_FAILURE,
+                                        new ListElement(exeption.getMessage())));
             }
         }
 
-        this.updateStreams(saslServer);
-    }
-
-    /**
-     * <p>Depending on the quality-of-protection property of the Sasl server
-     * the streams {@link #in} and {@link #out} must by encrypted.</p>
-     * <p>If the  quality-of-protection property is set to
-     * <code>auth-int</code> or </code>auth-conf</code>, the input and output
-     * streams {@link #in} and {@link #out} must be encrypted. This is done by
-     * filtering the original streams via the {@link SaslInputStream} and
-     * {@link SaslOutputStream}.</p>
-     *
-     * @param _saslServer   Sasl server
-     * @see #in
-     * @see #out
-     * @see SaslInputStream
-     * @see SaslOutputStream
-     * @see #authenticate(String)
-     */
-    protected void updateStreams(final SaslServer _saslServer)
-    {
-        final String qop = (String) _saslServer.getNegotiatedProperty(Sasl.QOP);
-        if ("auth-int".equals(qop) || "auth-conf".equals(qop))  {
-
-            // get output buffer size
-            final String outBuffSizeStr = (String) _saslServer.getNegotiatedProperty(Sasl.RAW_SEND_SIZE);
-            int outBuffSize = 1000;
-            if (outBuffSizeStr != null) {
-                try {
-                    outBuffSize = Integer.parseInt(outBuffSizeStr);
-                } catch (NumberFormatException nfe) {
-                    outBuffSize = 1000;
-                }
-            }
-
-            // get input buffer size
-            final String inBuffSizeStr = (String) _saslServer.getNegotiatedProperty(Sasl.MAX_BUFFER);
-            int inBuffSize = 1000;
-            if (inBuffSizeStr != null)  {
-                try {
-                    inBuffSize = Integer.parseInt(inBuffSizeStr);
-                } catch (final NumberFormatException nfe) {
-                    inBuffSize = 1000;
-                }
-            }
-
-            this.out = new SaslOutputStream(_saslServer, outBuffSize, this.out);
-            this.in = new SaslInputStream(_saslServer, inBuffSize, this.in);
-        }
+        this.streams.updateStreams(saslServer);
     }
 
     /**
@@ -591,9 +538,10 @@ public class SVNServerSession
 
         final DirEntry entry = this.getRepository().stat(revision, path, false);
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS,
-                                           new ListElement(entry.getKind())));
+        this.streams.writeItemList(
+                SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                new ListElement(Word.STATUS_SUCCESS,
+                                new ListElement(entry.getKind())));
     }
 
     /**
@@ -731,11 +679,12 @@ public class SVNServerSession
             }
         }
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS,
-                                           new ListElement(revision,
-                                                           propList,
-                                                           dirList)));
+        this.streams.writeItemList(
+                SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                new ListElement(Word.STATUS_SUCCESS,
+                                new ListElement(revision,
+                                                propList,
+                                                dirList)));
     }
 
     /**
@@ -779,25 +728,27 @@ public class SVNServerSession
             }
         }
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS,
-                                           new ListElement(
-                                                    new ListElement(dirEntry.getFileMD5()),
-                                                    dirEntry.getRevision(),
-                                                    props)));
+        this.streams.writeItemList(
+                SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                new ListElement(Word.STATUS_SUCCESS,
+                                new ListElement(
+                                        new ListElement(dirEntry.getFileMD5()),
+                                        dirEntry.getRevision(),
+                                        props)));
 
         if (wantsContent)  {
             final InputStream in = this.getRepository().getFile(revision, path);
             final byte[] buffer = new byte[4096];
             int length = in.read(buffer);
             while (length >= 0)  {
-                this.out.write(String.valueOf(length).getBytes("UTF8"));
-                this.out.write(':');
-                this.out.write(buffer, 0, length);
-                this.out.write(' ');
+                this.streams.writeWithoutFlush(String.valueOf(length));
+                this.streams.writeWithoutFlush(':');
+                this.streams.writeWithoutFlush(buffer, 0, length);
+                this.streams.writeWithoutFlush(' ');
+                this.streams.flush();
                 length = in.read(buffer);
             }
-            this.out.write(" 0: ( success ( ) ) ".getBytes("UTF8"));
+            this.streams.write(" 0: ( success ( ) ) ");
         }
 //        ( success ( ( ) 0: ) ) ( success ( 32:24b42e558b8f74c64939aa4257b1daa1 ) 1000 ( ( 14:svn:entry:uuid 36:cf646e2a-176c-4309-8bfa-14680e0fdf19 ) ( 23:svn:entry:committed-rev 4:1000 ) ( 24:svn:entry:committed-date 27:2009-03-21T12:44:38.200000Z ) ) )
 
@@ -819,9 +770,10 @@ public class SVNServerSession
     protected void svnGetLatestRev()
             throws UnsupportedEncodingException, IOException
     {
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS,
-                                           new ListElement(this.getRepository().getLatestRevision())));
+        this.streams.writeItemList(
+                SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                new ListElement(Word.STATUS_SUCCESS,
+                                new ListElement(this.getRepository().getLatestRevision())));
     }
 
     /**
@@ -875,9 +827,9 @@ public class SVNServerSession
         try  {
             locks = this.getRepository().lock(comment, stealLock, paths);
         } catch (final ServerException ex)  {
-            this.writeItemList(new ListElement(Word.STATUS_FAILURE,
+            this.streams.writeItemList(new ListElement(Word.STATUS_FAILURE,
                     new ListElement(new ListElement(/*ex.errorCode.code*/160035,"","", 0))));
-            this.out.write("done ( success ( ( ) 0: ) ) ( success ( ) ) ".getBytes("UTF8"));
+            this.streams.write("done ( success ( ( ) 0: ) ) ( success ( ) ) ");
         }
 
         final List<ListElement> ret = new ArrayList<ListElement>();
@@ -911,9 +863,9 @@ public class SVNServerSession
             }
         }
 
-        this.writeItemList(ret);
-        this.out.write("done ".getBytes("UTF8"));
-        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+        this.streams.writeItemList(ret);
+        this.streams.write("done ");
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -983,9 +935,9 @@ public class SVNServerSession
             }
         }
 
-        this.writeItemList(ret);
-        this.out.write("done ".getBytes("UTF8"));
-        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+        this.streams.writeItemList(ret);
+        this.streams.write("done ");
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -1031,8 +983,8 @@ public class SVNServerSession
                                              ? new ListElement(lockDesc.getExpires())
                                              : new ListElement()));
         }
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS, new ListElement(lock)));
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                                   new ListElement(Word.STATUS_SUCCESS, new ListElement(lock)));
     }
 
     /**
@@ -1084,8 +1036,8 @@ public class SVNServerSession
                                              : new ListElement()));
             }
         }
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS, new ListElement(locks)));
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                                   new ListElement(Word.STATUS_SUCCESS, new ListElement(locks)));
     }
 
     /**
@@ -1113,8 +1065,8 @@ public class SVNServerSession
 
         this.currentPath = path.substring(this.repository.getRootPath().length()
                                                   + this.repository.getRepositoryPath().length());
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                           new ListElement(Word.STATUS_SUCCESS, new ListElement()));
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                                   new ListElement(Word.STATUS_SUCCESS, new ListElement()));
     }
 
     /**
@@ -1155,7 +1107,8 @@ public class SVNServerSession
         final DirEntry entry = this.getRepository().stat(revision, path, false);
 
         if (entry != null)  {
-            this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
+            this.streams.writeItemList(
+                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
                     new ListElement(Word.STATUS_SUCCESS,
                                     new ListElement(new ListElement(
                     new ListElement(entry.getKind(),
@@ -1167,8 +1120,8 @@ public class SVNServerSession
                                             ? new ListElement(entry.getAuthor())
                                             : new ListElement())))));
         } else  {
-            this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                               SVNServerSession.EMPTY_SUCCESS);
+            this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                                       SVNServerSession.EMPTY_SUCCESS);
         }
     }
 
@@ -1218,34 +1171,34 @@ public class SVNServerSession
         // recurse?
         final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
         // depth and send copy from parameters
-        final boolean sendCopyFromParameters;
+//        final boolean sendCopyFromParameters;
         Depth depth = Depth.valueOf(_parameters.get(3).getWord());
         if (depth == null)  {
             depth = Depth.UNKNOWN;
-            sendCopyFromParameters = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
+//            sendCopyFromParameters = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
         } else  {
-            sendCopyFromParameters = (_parameters.get(4).getWord() == Word.BOOLEAN_TRUE);
+//            sendCopyFromParameters = (_parameters.get(4).getWord() == Word.BOOLEAN_TRUE);
         }
         if ((depth == Depth.UNKNOWN) && recurse)  {
             depth = Depth.INFINITY;
         }
 
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         final ReportList report = new ReportList();
-        report.read(this);
+        report.read(this.streams);
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         final Editor deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
 
         // editor mode
-        deltaEditor.write(this);
+        deltaEditor.write(this.streams);
 
-        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
 
-final ListElement result = this.readItemList();
+final ListElement result = this.streams.readItemList();
 if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {
     throw new Error("update does not work");
 }
@@ -1305,19 +1258,19 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             depth = Depth.INFINITY;
         }
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         final ReportList report = new ReportList();
-        report.read(this);
+        report.read(this.streams);
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         final Editor deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
 
         // editor mode
-        deltaEditor.write(this);
+        deltaEditor.write(this.streams);
 
-        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -1443,9 +1396,9 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
                        new ListElement());
         }
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-        this.writeItemList(list.toArray(new ListElement[list.size()]));
-        this.write("done ( success ( ) ) ");
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(list.toArray(new ListElement[list.size()]));
+        this.streams.write("done ( success ( ) ) ");
     }
 
     /**
@@ -1492,12 +1445,12 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             revisions[idx++] = revElem.getNumber();
         }
 
-        this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         final LocationEntries entries = this.repository.getLocations(pegRevision, path, revisions);
-        entries.write(this);
+        entries.write(this.streams);
 
-        this.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -1515,69 +1468,6 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
                 completePath.append(_path);
         }
         return completePath.toString();
-    }
-
-    public ListElement readItemList()
-            throws IOException
-    {
-        final ListElement list = new ListElement();
-        final int ch = this.in.read();
-        if (ch != -1)  {
-            if (((char) ch) != '(')  {
-                throw new Error("fehler:" + (char)ch);
-            }
-            if (!Character.isWhitespace((char) this.in.read()))  {
-                throw new Error("fehler");
-            }
-            list.read(this.in);
-            if (SVNServerSession.LOGGER.isTraceEnabled())  {
-                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-                list.write(byteArrayOut);
-                SVNServerSession.LOGGER.trace("RES<: {}", byteArrayOut.toString());
-            }
-        }
-        return (ch == -1) ? null : list;
-    }
-
-    public void writeItemList(final ListElement... _lists)
-            throws UnsupportedEncodingException, IOException
-    {
-        for (final ListElement list : _lists)  {
-            if (SVNServerSession.LOGGER.isTraceEnabled())  {
-                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-                list.write(byteArrayOut);
-                SVNServerSession.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
-            }
-            list.write(this.out);
-        }
-        this.out.flush();
-    }
-
-    public void writeItemList(final List<ListElement> _lists)
-            throws UnsupportedEncodingException, IOException
-    {
-        for (final ListElement list : _lists)  {
-            if (SVNServerSession.LOGGER.isTraceEnabled())  {
-                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-                list.write(byteArrayOut);
-                SVNServerSession.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
-            }
-            list.write(this.out);
-        }
-        this.out.flush();
-    }
-
-    public void write(final String _text)
-            throws UnsupportedEncodingException, IOException
-    {
-        SVNServerSession.LOGGER.trace("REQ>: {}", _text);
-        this.out.write(_text.getBytes("UTF8"));
-        this.out.flush();
-    }
-
-    public OutputStream getOut()
-    {
-        return this.out;
     }
 
     public IRepository getRepository()

@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 
-import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -48,10 +48,10 @@ abstract class AbstractDeltaDirectory
     }
 
     @Override
-    protected void writeClose(SVNServerSession _session)
+    protected void writeClose(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException
     {
-        _session.writeItemList(new ListElement(Word.CLOSE_DIR,
+        _streams.writeItemList(new ListElement(Word.CLOSE_DIR,
                                                new ListElement(this.getToken())));
 
     }

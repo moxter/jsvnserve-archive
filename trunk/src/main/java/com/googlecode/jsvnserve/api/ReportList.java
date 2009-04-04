@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
@@ -58,10 +58,10 @@ public class ReportList
         return this.list;
     }
 
-    public void read(final SVNServerSession _session)
+    public void read(final SVNSessionStreams _streams)
             throws IOException
     {
-        ListElement list = _session.readItemList();
+        ListElement list = _streams.readItemList();
         Word key = list.getList().get(0).getWord();
         while ((key != Word.FINISH_REPORT) && (key != Word.ABORT_REPORT))  {
             final List<AbstractElement<?>> params = list.getList().get(1).getList();
@@ -100,7 +100,7 @@ public class ReportList
                 case LINK_PATH:
                     break;
             }
-            list = _session.readItemList();
+            list = _streams.readItemList();
             key = list.getList().get(0).getWord();
         }
     }

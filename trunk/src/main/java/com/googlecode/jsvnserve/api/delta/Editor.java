@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Stack;
 import java.util.TreeMap;
 
-import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -154,14 +154,14 @@ public class Editor
     /**
      *
 
-     * @param _session
+     * @param _streams
      * @throws UnsupportedEncodingException
      * @throws IOException
      */
-    public void write(final SVNServerSession _session)
+    public void write(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException
     {
-        _session.writeItemList(new ListElement(Word.TARGET_REV, new ListElement(this.getTargetRevision())));
+        _streams.writeItemList(new ListElement(Word.TARGET_REV, new ListElement(this.getTargetRevision())));
 
         final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
         for (final AbstractDelta delta : this.getDeltas())  {
@@ -173,20 +173,20 @@ public class Editor
                 final String parentDir = (file.getParent() == null) ? "" : file.getParent();
 
                 while (!stack.peek().getPath().equals(parentDir))  {
-                    stack.pop().writeClose(_session);
+                    stack.pop().writeClose(_streams);
                 }
 
                 parentToken = stack.peek().getToken();
             }
 
             stack.add(delta);
-            delta.writeOpen(_session, parentToken);
+            delta.writeOpen(_streams, parentToken);
         }
 
         while (!stack.empty())  {
-            stack.pop().writeClose(_session);
+            stack.pop().writeClose(_streams);
         }
 
-        _session.writeItemList(new ListElement(Word.CLOSE_EDIT, new ListElement()));
+        _streams.writeItemList(new ListElement(Word.CLOSE_EDIT, new ListElement()));
     }
 }
