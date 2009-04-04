@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -89,51 +90,51 @@ public abstract class AbstractDelta
         this.committedDate = _committedDate;
     }
 
-    protected abstract void writeOpen(final SVNServerSession _session,
+    protected abstract void writeOpen(final SVNSessionStreams _streams,
                                       final String _parentToken)
             throws UnsupportedEncodingException, IOException;
 
-    protected abstract void writeClose(final SVNServerSession _session)
+    protected abstract void writeClose(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException;
 
-    protected void writeAllProperties(final SVNServerSession _session,
+    protected void writeAllProperties(final SVNSessionStreams _streams,
                                       final Word _word)
             throws UnsupportedEncodingException, IOException
     {
         if (this.getCommittedRevision() != null)  {
-            this.writeProperty(_session,
+            this.writeProperty(_streams,
                                _word,
                                SVNServerSession.PROPERTY_DIR_ENTRY_REVISION,
                                String.valueOf(this.getCommittedRevision()));
         }
         if (this.getCommittedDate() != null)  {
-            this.writeProperty(_session,
+            this.writeProperty(_streams,
                                _word,
                                SVNServerSession.PROPERTY_DIR_ENTRY_DATE,
                                this.getCommittedDate());
         }
-        this.writeProperty(_session,
+        this.writeProperty(_streams,
                            _word,
                            SVNServerSession.PROPERTY_REPOSITORY_UUID,
-                           _session.getRepository().getUUID().toString());
+                           _streams.getSession().getRepository().getUUID().toString());
         if (this.getLastAuthor() != null)  {
-            this.writeProperty(_session,
+            this.writeProperty(_streams,
                                _word,
                                SVNServerSession.PROPERTY_DIR_ENTRY_AUTHOR,
                                this.getLastAuthor());
         }
         for (final Map.Entry<String,String> propEntry : this.getProperties().entrySet())  {
-            this.writeProperty(_session, _word, propEntry.getKey(), propEntry.getValue());
+            this.writeProperty(_streams, _word, propEntry.getKey(), propEntry.getValue());
         }
     }
 
-    protected void writeProperty(final SVNServerSession _session,
+    protected void writeProperty(final SVNSessionStreams _streams,
                                  final Word _word,
                                  final String _key,
                                  final Object _value)
             throws UnsupportedEncodingException, IOException
     {
-        _session.writeItemList(new ListElement(_word,
+        _streams.writeItemList(new ListElement(_word,
                                                new ListElement(this.getToken(), _key, new ListElement(_value))));
 
     }

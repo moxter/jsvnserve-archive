@@ -31,7 +31,7 @@ import org.tmatesoft.svn.core.io.ISVNDeltaConsumer;
 import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
 import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 
-import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -54,27 +54,27 @@ class DeltaFileCreate
     }
 
     @Override
-    protected void writeOpen(final SVNServerSession _session,
+    protected void writeOpen(final SVNSessionStreams _streams,
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
-        _session.writeItemList(
+        _streams.writeItemList(
                 new ListElement(Word.ADD_FILE,
                                 new ListElement(this.getPath(),
                                                 _parentToken,
                                                 this.getToken(),
                                                 new ListElement())));
-        this.writeAllProperties(_session, Word.CHANGE_FILE_PROP);
+        this.writeAllProperties(_streams, Word.CHANGE_FILE_PROP);
 
-        _session.writeItemList(new ListElement(Word.APPLY_TEXTDELTA, new ListElement(this.getToken(), new ListElement())));
+        _streams.writeItemList(new ListElement(Word.APPLY_TEXTDELTA, new ListElement(this.getToken(), new ListElement())));
 
         SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
         String md5 = "";
         try {
             md5 = deltaGenerator.sendDelta(this.getToken(),
-                    _session.getRepository().getFile(this.getCommittedRevision(), this.getPath()),
+                    _streams.getSession().getRepository().getFile(this.getCommittedRevision(), this.getPath()),
                     new ISVNDeltaConsumer() {
-                boolean writeHeader = true;
+                        boolean writeHeader = true;
 
                         public void applyTextDelta(String s, String s1)
                         {
@@ -87,16 +87,16 @@ class DeltaFileCreate
                             OutputStream out = new OutputStream() {
                                 @Override
                                 public void write(byte b[], int off, int len) throws IOException {
-        System.out.println("----( textdelta-chunk ( 2:"+DeltaFileCreate.this.getToken()+" ( "+String.valueOf(len)+": ) ) ) ");
-        _session.getOut().write("( textdelta-chunk ( ".getBytes());
-        _session.getOut().write(String.valueOf(DeltaFileCreate.this.getToken().length()).getBytes());
-        _session.getOut().write(':');
-        _session.getOut().write(DeltaFileCreate.this.getToken().getBytes());
-        _session.getOut().write(' ');
-        _session.getOut().write(String.valueOf(len).getBytes());
-        _session.getOut().write(':');
-        _session.getOut().write(b, off, len);
-        _session.getOut().write(" ) ) ".getBytes());
+        _streams.traceWrite("( textdelta-chunk ( 2:{} ( {}:... ) ) ) ", DeltaFileCreate.this.getToken(), len);
+        _streams.writeWithoutFlush("( textdelta-chunk ( ");
+        _streams.writeWithoutFlush(String.valueOf(DeltaFileCreate.this.getToken().length()));
+        _streams.writeWithoutFlush(':');
+        _streams.writeWithoutFlush(DeltaFileCreate.this.getToken());
+        _streams.writeWithoutFlush(' ');
+        _streams.writeWithoutFlush(String.valueOf(len));
+        _streams.writeWithoutFlush(':');
+        _streams.writeWithoutFlush(b, off, len);
+        _streams.writeWithoutFlush(" ) ) ");
                                 }
 
                                 @Override
@@ -121,7 +121,6 @@ class DeltaFileCreate
 
                         public void textDeltaEnd(String s) throws SVNException
                         {
-                            System.out.println("----( textdelta-end ( 2:"+s+" ) ) ");
                         }
             },
                     true);
@@ -130,13 +129,13 @@ class DeltaFileCreate
             e.printStackTrace();
         }
 
-        _session.writeItemList(
+        _streams.writeItemList(
                 new ListElement(Word.TEXTDELTA_END, new ListElement(this.getToken())),
                 new ListElement(Word.CLOSE_FILE, new ListElement(this.getToken(), new ListElement(md5))));
     }
 
     @Override
-    protected void writeClose(final SVNServerSession _session)
+    protected void writeClose(final SVNSessionStreams _streams)
     {
     }
 }

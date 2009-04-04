@@ -25,7 +25,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.googlecode.jsvnserve.SVNServerSession;
+import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
 
 /**
@@ -65,18 +65,18 @@ public class LocationEntries
      * <p><b>SVN Response after last Location Entry</b><br/>
      * <code style="color:green">done</code></p>
      *
-     * @param _session      SVN server session where the location entries must
+     * @param _streams      SVN session streams where the location entries must
      *                      be written
      * @throws UnsupportedEncodingException if a string could not be UTF8
      *                                      encoded
      * @throws IOException                  if an I/O error occurred
      */
-    public void write(final SVNServerSession _session)
+    public void write(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException
     {
         for (final Map.Entry<Long,String> entry : this.entries.entrySet())  {
-            _session.writeItemList(new ListElement(entry.getKey(), entry.getValue()));
+            _streams.writeItemList(new ListElement(entry.getKey(), entry.getValue()));
         }
-        _session.write("done ");
+        _streams.write("done ");
     }
 }
