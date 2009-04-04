@@ -1445,7 +1445,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
 
         this.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
         this.writeItemList(list.toArray(new ListElement[list.size()]));
-        this.out.write("done ( success ( ) ) ".getBytes("UTF8"));
+        this.write("done ( success ( ) ) ");
     }
 
     /**
