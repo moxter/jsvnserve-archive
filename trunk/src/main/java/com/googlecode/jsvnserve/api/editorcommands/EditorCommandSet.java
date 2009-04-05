@@ -18,18 +18,22 @@
  * Last Changed By: $Author$
  */
 
-package com.googlecode.jsvnserve.api.delta;
+package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 import java.util.TreeMap;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
+import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -38,15 +42,23 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * @author jSVNServe Team
  * @version $Id$
  */
-public class Editor
+public class EditorCommandSet
 {
     /**
      * Stores one delta depending from the path and the related delta.
      *
      * @see #getDelta(String)
      * @see #getDeltas()
+     * @see #addDelta(AbstractDelta)
      */
     private final Map<String,AbstractDelta> deltas = new TreeMap<String,AbstractDelta>();
+
+    /**
+     * Maps between the token and the related real path name.
+     *
+     * @see #addDelta(AbstractDelta)
+     */
+    private final Map<String,String> mapToken2Path = new HashMap<String,String>();
 
     /**
      * Current token index used to give each directory path a specific token
@@ -63,10 +75,12 @@ public class Editor
 
     /**
      *
-     * @param _targetRevision   target revision described from this delta
+     * @param _targetRevision   target revision described from this delta; if
+     *                          <code>-1</code> the editor command set is
+     *                          used to read from SVN client
      * @see #targetRevision
      */
-    public Editor(final long _targetRevision)
+    public EditorCommandSet(final long _targetRevision)
     {
         this.targetRevision = _targetRevision;
     }
@@ -94,6 +108,21 @@ public class Editor
     }
 
     /**
+     * Adds a new delta to this editor command set. Depending on the path
+     * to new delta is put into the {@link #deltas} map. Also depending on the
+     * token the related path is stored.
+     *
+     * @param _delta    delta to add
+     * @see #deltas
+     * @see #mapToken2Path
+     */
+    protected void addDelta(final AbstractDelta _delta)
+    {
+        this.deltas.put(_delta.getPath(), _delta);
+        this.mapToken2Path.put(_delta.getToken(), _delta.getPath());
+    }
+
+    /**
      *
      * @param _path     path for which the delta is searched
      * @return searched delta or <code>null</code> if not found
@@ -104,12 +133,17 @@ public class Editor
         return this.deltas.get(_path);
     }
 
+    private String getNewToken(final char _prefix)
+    {
+        return new StringBuilder().append(_prefix).append(++this.tokenIndex).toString();
+    }
+
     public AbstractDelta updateRoot(final String _lastAuthor,
                                     final Long _committedRevision,
                                     final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaRootOpen(this, _lastAuthor, _committedRevision, _committedDate);
-        this.deltas.put("", delta);
+        final AbstractDelta delta = new DeltaRootOpen(this.getNewToken('d'), _lastAuthor, _committedRevision, _committedDate);
+        this.addDelta(delta);
         return delta;
     }
 
@@ -118,8 +152,8 @@ public class Editor
                                    final Long _committedRevision,
                                    final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaDirectoryCreate(this, _path, _lastAuthor, _committedRevision, _committedDate);
-        this.deltas.put(_path, delta);
+        final AbstractDelta delta = new DeltaDirectoryCreate(this.getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
+        this.addDelta(delta);
         return delta;
     }
 
@@ -128,8 +162,8 @@ public class Editor
                                    final Long _committedRevision,
                                    final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaDirectoryOpen(this, _path, _lastAuthor, _committedRevision, _committedDate);
-        this.deltas.put(_path, delta);
+        final AbstractDelta delta = new DeltaDirectoryOpen(this.getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
+        this.addDelta(delta);
         return delta;
     }
 
@@ -146,15 +180,63 @@ public class Editor
                                     final Long _revision,
                                     final Date _date)
     {
-        final AbstractDelta delta = new DeltaFileCreate(this, _path, _lastAuthor, _revision, _date);
-        this.deltas.put(_path, delta);
+        final AbstractDelta delta = new DeltaFileCreate(this.getNewToken('f'), _path, _lastAuthor, _revision, _date);
+        this.addDelta(delta);
         return delta;
     }
 
     /**
      *
-
      * @param _streams
+     * @throws IOException
+     * @throws URISyntaxException   if for copied directories or files the
+     *                              copied path could not parsed
+     */
+    public void read(final SVNSessionStreams _streams)
+            throws IOException, URISyntaxException
+    {
+        boolean closed = false;
+        while (!closed)  {
+            ListElement list = _streams.readItemList();
+            final Word key = list.getList().get(0).getWord();
+            final List<AbstractElement<?>> params = list.getList().get(1).getList();
+            switch (key)  {
+                case OPEN_ROOT:
+                    this.addDelta(new DeltaRootOpen(params.get(1).getString(),
+                                                    null, null, null));
+                    break;
+                case ADD_DIR:
+                    final String dirPath = params.get(0).getString();
+                    final String dirToken = params.get(2).getString();
+                    final List<AbstractElement<?>> copyList = params.get(3).getList();
+                    // new directory
+                    if (copyList.isEmpty())  {
+                        this.addDelta(new DeltaDirectoryCreate(dirToken, dirPath, null, null, null));
+                    // directory is copied
+                    } else  {
+                        final String copyPath = _streams.getSession().extractPathFromURL(copyList.get(0).getString());
+                        final long copyRevision = copyList.get(1).getNumber();
+                        this.addDelta(new DeltaDirectoryCopy(dirToken, dirPath, copyPath, copyRevision, null, null, null));
+                    }
+                    break;
+                case OPEN_DIR:
+                    this.addDelta(new DeltaDirectoryOpen(params.get(2).getString(),
+                                                         params.get(0).getString(),
+                                                         null, null, null));
+                    break;
+                case CLOSE_DIR:
+                case CLOSE_FILE:
+                    break;
+                case CLOSE_EDIT:
+                    closed = true;
+                    break;
+            }
+        }
+    }
+
+    /**
+     *
+     * @param _streams      SVN server session streams
      * @throws UnsupportedEncodingException
      * @throws IOException
      */

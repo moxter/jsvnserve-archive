@@ -1,0 +1,116 @@
+<table>
+
+<tr><td><code style="color:green">( target-rev (</code></td></tr>
+<tr><td  rowspan="1"></td><td><code style="color:green">rev:number</code></td>
+     <td>target revision number</td></tr>
+<tr><td><code style="color:green">) )</code></td></tr>
+<tr><td colspan="3">Defines the target revision this delta is running for.
+    E.g. the target revision to which an update is running.<br/>
+    See also: <a href="Editor#targetRevision">Editor.targetRevision</a></td></tr>
+<tr ><td></td></tr>
+
+<tr><td><code style="color:green">( open-root (</code></td></tr>
+<tr><td  rowspan="2"></td><td><code style="color:green"><nobr>( ?rev:number )</nobr></code></td>
+    <td>revision number of the root (optional, could be also defined via SVN
+        properties)</td></tr>
+<tr><td><code style="color:green"><nobr>root-token:string</nobr></code></td>
+    <td>token of the root path</td></tr>
+<tr><td><code style="color:green">) )</code></td></tr>
+<tr><td colspan="3">
+    Opens the root directory on which the operation was invoked.
+    All property changes as well as entries adding / deletion will be applied to
+    this root directory.
+    When coming back up to this root (after traversing the entire tree), the
+    root directory must be closed with <code>closedir</code>.</td></tr>
+
+
+<tr><td><code style="color:green"><nobr>( delete-entry (</nobr></code></td></tr>
+<tr><td  rowspan="3"></td><td><code style="color:green">path:string</code></td>
+    <td>path of the entry to delete</td></tr>
+<tr><td><code style="color:green">rev:number</code></td>
+    <td>revision number of the root (optional, could be also defined via SVN
+        properties)</td></tr>
+<tr><td><code style="color:green">dir-token:string</code></td>
+    <td>token of the parent path</td></tr>
+<tr><td><code style="color:green">) )</code></td></tr>
+<tr><td colspan="3">Deletes given entry depending on the &quot;mode&quot;:
+    <ul>
+    <li>commit: deletes an entry within repository</li>
+    <li>update: deletes an entry locally (because was deleted in the 
+        repository)</li>
+    <li>status: informs that an entry has been deleted</li>
+    </ul></td></tr>
+
+<tr><td><code style="color:green"><nobr>( add-dir (</nobr></code></td></tr>
+<tr><td  rowspan="4"></td><td><code style="color:green">path:string</code></td>
+    <td>path of the entry to add</td></tr>
+<tr><td><code style="color:green">parent-token:string</code></td>
+    <td>token of the parent path</td></tr>
+<tr><td><code style="color:green">child-token:string</code></td>
+    <td>token of the entry to add</td></tr>
+<tr><td><code style="color:green">( ?copy-path:string ?copy-rev:number )</code></td>
+    <td></td></tr>
+<tr><td><code style="color:green">) )</code></td></tr>
+<tr><td colspan="3">Adds given directory path depending on the &quot;mode&quot;:
+    <ul>
+    <li>commit: adds a new directory to a repository</li>
+    <li>update: adds a new directory locally (because was added in the 
+        repository)</li>
+    <li>status: informs that a directory has been added</li>
+    </ul>
+    If copyFromPath is not null then it says that path is copied from copyFromPath located in copyFromRevision.
+    </td></tr>
+
+
+  open-dir
+    params:   ( path:string parent-token:string child-token:string rev:number )
+
+
+</table>
+
+  change-dir-prop
+    params:   ( dir-token:string name:string [ value:string ] )
+
+  close-dir
+    params:   ( dir-token:string )
+
+  absent-dir
+    params:   ( path:string parent-token:string )
+
+  add-file
+    params:   ( path:string dir-token:string file-token:string
+                [ copy-path:string copy-rev:number ] )
+
+  open-file
+    params:   ( path:string dir-token:string file-token:string rev:number )
+
+  apply-textdelta
+    params:   ( file-token:string [ base-checksum:string ] )
+
+  textdelta-chunk
+    params: ( file-token:string chunk:string )
+
+  textdelta-end
+    params: ( file-token:string )
+
+  change-file-prop
+    params:   ( file-token:string name:string [ value:string ] )
+
+  close-file
+    params:   ( file-token:string [ text-checksum:string ] )
+
+  absent-file
+    params:   ( path:string parent-token:string )
+
+  close-edit
+    params:   ( )
+    response: ( )
+
+  abort-edit
+    params:   ( )
+    response: ( )
+
+  finish-replay
+    params:   ( )
+    Only delivered from server to client, at the end of a replay.
+ 

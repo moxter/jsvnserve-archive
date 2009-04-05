@@ -31,7 +31,8 @@ public interface IRepositoryFactory
 {
     /**
      * <p>Returns for given path related repository instance. The path includes
-     * the path of the repository and the path which defines the root.</p>
+     * the path of the repository and the path which defines the location
+     * within the repository.</p>
      * <p><b>Example paths:</b><br/>
      * <code>svn+ssh://server/repository/</code><br/>
      * <code>svn+ssh://server/repository/trunk</code><br/>
@@ -39,8 +40,8 @@ public interface IRepositoryFactory
      * In all cases &quot;<code>repository</code>&quot; is the repository path
      * (see {@link IRepository#getRepositoryPath()}), &quot;&quot;,
      * &quot;<code>trunk</code>&quot; and
-     * &quot;<code>branches/V1.0.9</code>&quot; are the root paths (see
-     * {@link IRepository#getRootPath()}).</p>
+     * &quot;<code>branches/V1.0.9</code>&quot; are the location paths (see
+     * {@link IRepository#getLocationPath()}).</p>
      * <p>A repository path could also include more than one name (e.g.
      * &quot;<code>repositories/data</code>&quot; or
      * &quot;<code>repositories/pictures</code>&quot;). All paths could depends
@@ -48,7 +49,7 @@ public interface IRepositoryFactory
      * &quot;<code>repository/data/trunk</code>&quot; could be accessed by
      * the user with &quot;symbolic path&quot; &quot;<code>trunk</code>&quot;
      * (in this case the repository path for the user is &quot;&quot; and the
-     * root path &quot;<code>trunk</code>&quot;).</p>
+     * location path &quot;<code>trunk</code>&quot;).</p>
      *
      * @param _user     name of current context user which wants to use given
      *                  repository
@@ -56,7 +57,7 @@ public interface IRepositoryFactory
      *                  (including repository path and root path)
      * @return repository instance
      * @see IRepository#getRepositoryPath()
-     * @see IRepository#getRootPath()
+     * @see IRepository#getLocationPath()
      */
     public IRepository createRepository(final String _user,
                                         final String _path);

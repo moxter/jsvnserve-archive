@@ -33,8 +33,10 @@ import javax.security.sasl.SaslServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
+import com.googlecode.jsvnserve.element.WordElement.Word;
 import com.googlecode.jsvnserve.sasl.SaslInputStream;
 import com.googlecode.jsvnserve.sasl.SaslOutputStream;
 
@@ -96,14 +98,6 @@ public class SVNSessionStreams
         return this.session;
     }
 
-    public void write(final String _text)
-            throws UnsupportedEncodingException, IOException
-    {
-        SVNSessionStreams.LOGGER.trace("REQ>: {}", _text);
-        this.out.write(_text.getBytes("UTF8"));
-        this.out.flush();
-    }
-
     /**
      * If the writeWithoutFlush methods are used, no trace is written and must
      * done manually.
@@ -132,6 +126,79 @@ public class SVNSessionStreams
         if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
             SVNSessionStreams.LOGGER.trace("RES<: " + _text, _objects);
         }
+    }
+
+
+    public void write(final String _text)
+            throws UnsupportedEncodingException, IOException
+    {
+        SVNSessionStreams.LOGGER.trace("REQ>: {}", _text);
+        this.out.write(_text.getBytes("UTF8"));
+        this.out.flush();
+    }
+
+    public void writeItemList(final ListElement... _lists)
+            throws UnsupportedEncodingException, IOException
+    {
+        for (final ListElement list : _lists)  {
+            if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
+                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+                list.write(byteArrayOut);
+                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
+            }
+            list.write(this.out);
+        }
+        this.out.flush();
+    }
+
+    public void writeItemList(final List<ListElement> _lists)
+            throws UnsupportedEncodingException, IOException
+    {
+        for (final ListElement list : _lists)  {
+            if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
+                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+                list.write(byteArrayOut);
+                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
+            }
+            list.write(this.out);
+        }
+        this.out.flush();
+    }
+
+    /**
+     * Writes the failure status.
+     *
+     * @param _errorCode        error code to write
+     * @param _errorMessage     error message to write; if <code>null</code>
+     *                          an empty string is written
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    public void writeFailureStatus(final ErrorCode _errorCode,
+                                   final String _errorMessage)
+            throws UnsupportedEncodingException, IOException
+    {
+        this.writeItemList(
+                new ListElement(Word.STATUS_FAILURE,
+                        new ListElement(new ListElement(
+                                _errorCode.code,
+                                (_errorMessage == null) ? "" : _errorMessage,
+                                "",
+                                0))));
+    }
+
+    /**
+     * Writes the failure status with unknown error code 0.
+     *
+     * @param _errorMessage     error message to write; if <code>null</code>
+     *                          an empty string is written
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    public void writeFailureStatus(final String _errorMessage)
+            throws UnsupportedEncodingException, IOException
+    {
+        this.writeFailureStatus(ErrorCode.UNKNOWN, _errorMessage);
     }
 
     public void writeWithoutFlush(final String _text)
@@ -171,35 +238,6 @@ public class SVNSessionStreams
     {
         this.out.flush();
     }
-
-    public void writeItemList(final ListElement... _lists)
-            throws UnsupportedEncodingException, IOException
-    {
-        for (final ListElement list : _lists)  {
-            if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
-                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-                list.write(byteArrayOut);
-                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
-            }
-            list.write(this.out);
-        }
-        this.out.flush();
-    }
-
-    public void writeItemList(final List<ListElement> _lists)
-            throws UnsupportedEncodingException, IOException
-    {
-        for (final ListElement list : _lists)  {
-            if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
-                final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-                list.write(byteArrayOut);
-                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
-            }
-            list.write(this.out);
-        }
-        this.out.flush();
-    }
-
 
     public ListElement readItemList()
             throws IOException

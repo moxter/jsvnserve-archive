@@ -18,7 +18,7 @@
  * Last Changed By: $Author$
  */
 
-package com.googlecode.jsvnserve.api.delta;
+package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -26,8 +26,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
-import com.googlecode.jsvnserve.SVNServerSession;
 import com.googlecode.jsvnserve.SVNSessionStreams;
+import com.googlecode.jsvnserve.api.Properties.PropertyKey;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -38,8 +38,6 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  */
 public abstract class AbstractDelta
 {
-    private final Editor deltaEditor;
-
     /**
      * Current token of the delta.
      *
@@ -53,6 +51,19 @@ public abstract class AbstractDelta
      * @see #getPath()
      */
     private final String path;
+
+    /**
+     * Name of the original copied path. If <code>null</code> the new
+     * directory / file was not copied. The copied path is absolute to the
+     * repository path (and starts always with '/').
+     */
+    private final String copiedPath;
+
+    /**
+     * Revision of the copied path. If <code>null</code> the new directory /
+     * file was not copied.
+     */
+    private final Long copiedRevision;
 
     /**
      * Last author.
@@ -75,16 +86,18 @@ public abstract class AbstractDelta
 
     private final Map<String,String> properties = new TreeMap<String,String>();
 
-    AbstractDelta(final Editor _deltaEditor,
-                  final char _prefix,
+    AbstractDelta(final String _token,
                   final String _path,
+                  final String _copiedPath,
+                  final Long _copiedRevision,
                   final String _lastAuthor,
                   final Long _committedRevision,
                   final Date _committedDate)
     {
-        this.deltaEditor = _deltaEditor;
-        this.token = new StringBuilder().append(_prefix).append(++_deltaEditor.tokenIndex).toString();
+        this.token = _token;
         this.path = _path;
+        this.copiedPath = _copiedPath;
+        this.copiedRevision = _copiedRevision;
         this.lastAuthor = _lastAuthor;
         this.committedRevision = _committedRevision;
         this.committedDate = _committedDate;
@@ -104,23 +117,23 @@ public abstract class AbstractDelta
         if (this.getCommittedRevision() != null)  {
             this.writeProperty(_streams,
                                _word,
-                               SVNServerSession.PROPERTY_DIR_ENTRY_REVISION,
+                               PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
                                String.valueOf(this.getCommittedRevision()));
         }
         if (this.getCommittedDate() != null)  {
             this.writeProperty(_streams,
                                _word,
-                               SVNServerSession.PROPERTY_DIR_ENTRY_DATE,
+                               PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
                                this.getCommittedDate());
         }
         this.writeProperty(_streams,
                            _word,
-                           SVNServerSession.PROPERTY_REPOSITORY_UUID,
+                           PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
                            _streams.getSession().getRepository().getUUID().toString());
         if (this.getLastAuthor() != null)  {
             this.writeProperty(_streams,
                                _word,
-                               SVNServerSession.PROPERTY_DIR_ENTRY_AUTHOR,
+                               PropertyKey.ENTRY_DIR_ENTRY_AUTHOR.getSVNKey(),
                                this.getLastAuthor());
         }
         for (final Map.Entry<String,String> propEntry : this.getProperties().entrySet())  {
@@ -155,11 +168,6 @@ public abstract class AbstractDelta
         return this.properties;
     }
 
-    protected Editor getDeltaEditor()
-    {
-        return this.deltaEditor;
-    }
-
     public String getToken()
     {
         return this.token;
@@ -168,6 +176,16 @@ public abstract class AbstractDelta
     public String getPath()
     {
         return this.path;
+    }
+
+    public String getCopiedPath()
+    {
+        return this.copiedPath;
+    }
+
+    public Long getCopiedRevision()
+    {
+        return this.copiedRevision;
     }
 
     public String getLastAuthor()

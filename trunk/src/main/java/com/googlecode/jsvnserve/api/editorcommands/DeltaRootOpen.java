@@ -1,4 +1,4 @@
-package com.googlecode.jsvnserve.api.delta;
+package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -16,12 +16,12 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
 public class DeltaRootOpen
         extends AbstractDeltaDirectory
 {
-    DeltaRootOpen(final Editor _deltaEditor,
+    DeltaRootOpen(final String _token,
                   final String _lastAuthor,
                   final Long _committedRevision,
                   final Date _committedDate)
     {
-        super(_deltaEditor, 'd', "", _lastAuthor, _committedRevision, _committedDate);
+        super(_token, "", null, null, _lastAuthor, _committedRevision, _committedDate);
     }
 
     @Override
