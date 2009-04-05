@@ -68,6 +68,7 @@ import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 import org.tmatesoft.svn.core.wc.SVNClientManager;
 
+import com.googlecode.jsvnserve.api.CommitInfo;
 import com.googlecode.jsvnserve.api.Depth;
 import com.googlecode.jsvnserve.api.DirEntry;
 import com.googlecode.jsvnserve.api.DirEntryList;
@@ -76,6 +77,7 @@ import com.googlecode.jsvnserve.api.IRepositoryFactory;
 import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
+import com.googlecode.jsvnserve.api.Properties;
 import com.googlecode.jsvnserve.api.ReportList;
 import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
@@ -83,8 +85,13 @@ import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
 import com.googlecode.jsvnserve.api.ReportList.AbstractCommand;
 import com.googlecode.jsvnserve.api.ReportList.DeletePath;
 import com.googlecode.jsvnserve.api.ReportList.SetPath;
-import com.googlecode.jsvnserve.api.delta.AbstractDelta;
-import com.googlecode.jsvnserve.api.delta.Editor;
+import com.googlecode.jsvnserve.api.editorcommands.AbstractDelta;
+import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaDirectory;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCopy;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCreate;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryOpen;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaRootOpen;
+import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
 
 /**
  *
@@ -110,19 +117,16 @@ public class RepositoryFactory
  //       final SVNURL svnURL = SVNURL.parseURIEncoded( "svn://127.0.0.1:7777/" );
     final SVNURL svnURL = SVNURL.parseURIEncoded( "file:///Users/tim/Daten/Bosch/svntest/test/svn/" );
 
-    final SVNClientManager clientManager;
-
     public RepositoryFactory() throws SVNException
     {
         SVNRepositoryFactoryImpl.setup();
         FSRepositoryFactory.setup();
-        this.clientManager = SVNClientManager.newInstance(null, new BasicAuthenticationManager("jan" , "test"));
     }
 
     public IRepository createRepository(String _user, String _path)
     {
         try {
-            return new Repository("/proxy", _path.substring("/proxy".length()));
+            return new Repository(_user, "/proxy", _path.substring("/proxy".length()));
         } catch (SVNException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -134,6 +138,7 @@ public class RepositoryFactory
             implements IRepository
     {
         final SVNRepository svnRepository;
+        final SVNClientManager clientManager;
 
         /**
          * Repository path.
@@ -145,19 +150,19 @@ public class RepositoryFactory
         /**
          * Root path of the repository.
          *
-         * @see #getRootPath()
+         * @see #getLocationPath()
          */
         final String rootPath;
 
-        Repository(final String _repositoryPath,
+        Repository(final String _user,
+                   final String _repositoryPath,
                    final String _rootPath)
                 throws SVNException
         {
             this.repositoryPath = _repositoryPath;
             this.rootPath = _rootPath;
-            this.svnRepository = RepositoryFactory.this.clientManager.createRepository(svnURL.appendPath(_rootPath, false), false);
- //           this.svnRepository.setAuthenticationManager(new BasicAuthenticationManager("tim" , "test"));
-//System.out.println("authenman="+this.svnRepository.getAuthenticationManager());
+            this.clientManager = SVNClientManager.newInstance(null, new BasicAuthenticationManager(_user , _user));
+            this.svnRepository = this.clientManager.createRepository(RepositoryFactory.this.svnURL.appendPath(_rootPath, false), false);
         }
 
         public UUID getUUID()
@@ -184,9 +189,71 @@ public class RepositoryFactory
          * @returns repository root path
          * @see #rootPath
          */
-        public CharSequence getRootPath()
+        public CharSequence getLocationPath()
         {
             return this.rootPath;
+        }
+
+        public CommitInfo commit(final String _logMessage,
+                                 final Map<String,String> _locks,
+                                 final boolean _keepLocks,
+                                 final Properties _revisionProps,
+                                 final EditorCommandSet _editor)
+                throws ServerException
+        {
+            CommitInfo commitInfo = null;
+
+            try {
+                final ISVNEditor editor = this.svnRepository.getCommitEditor(_logMessage,
+                                                                             _locks,
+                                                                             _keepLocks,
+                                                                             SVNProperties.wrap(_revisionProps),
+                                                                             null);
+                final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
+                for (final AbstractDelta delta : _editor.getDeltas())  {
+                    if (!stack.isEmpty())  {
+                        final File file = new File(delta.getPath());
+                        final String parentDir = (file.getParent() == null) ? "" : file.getParent();
+
+                        while (!stack.peek().getPath().equals(parentDir))  {
+                            if (stack.pop() instanceof AbstractDeltaDirectory)  {
+                                editor.closeDir();
+                            } else  {
+                                // file close
+                            }
+                        }
+                    }
+
+                    stack.add(delta);
+
+                    if (delta instanceof DeltaRootOpen)  {
+                        editor.openRoot(-1);
+                    } else if (delta instanceof DeltaDirectoryCopy)  {
+                        editor.addDir(delta.getPath(), delta.getCopiedPath(), delta.getCopiedRevision());
+                    } else if (delta instanceof DeltaDirectoryCreate)  {
+                        editor.addDir(delta.getPath(), null, -1);
+                    } else if (delta instanceof DeltaDirectoryOpen)  {
+                        editor.openDir(delta.getPath(), -1);
+                    }
+                }
+                while (!stack.empty())  {
+                    if (stack.pop() instanceof AbstractDeltaDirectory)  {
+                        editor.closeDir();
+                    } else  {
+                        // file close
+                    }
+                }
+
+                final SVNCommitInfo svnCommitInfo = editor.closeEdit();
+
+                commitInfo = new CommitInfo(svnCommitInfo.getNewRevision(),
+                                            svnCommitInfo.getAuthor(),
+                                            svnCommitInfo.getDate());
+            } catch (final SVNException e) {
+                throw new ServerException(e.getMessage(), e);
+            }
+
+            return commitInfo;
         }
 
         public LogEntryList getLog(final long _startRevision,
@@ -526,7 +593,7 @@ System.out.println("temp="+temp);
             return entries;
         }
 
-        public Editor getStatus(final Long _revision,
+        public EditorCommandSet getStatus(final Long _revision,
                                   final String _path,
                                   final Depth _depth,
                                   final ReportList _report)
@@ -574,7 +641,7 @@ try {
 }
 
 System.out.println("editor="+editor.list);
-final Editor deltaEditor = new Editor(editor.targetRevision);
+final EditorCommandSet deltaEditor = new EditorCommandSet(editor.targetRevision);
 try  {
             for (final AbstractDir dir : editor.list)  {
                 dir.createDelta(deltaEditor);
@@ -608,7 +675,7 @@ try  {
             this.copiedRevision = _copiedRevision;
         }
 
-        public abstract void createDelta(final Editor _deltaEditor)
+        public abstract void createDelta(final EditorCommandSet _deltaEditor)
                 throws NumberFormatException, ParseException;
     }
 
@@ -622,7 +689,7 @@ try  {
 
 
         @Override
-        public void createDelta(final Editor _deltaEditor)
+        public void createDelta(final EditorCommandSet _deltaEditor)
                 throws NumberFormatException, ParseException
         {
             final AbstractDelta delta = _deltaEditor.updateRoot(
@@ -654,7 +721,7 @@ try  {
         }
 
         @Override
-        public void createDelta(final Editor _deltaEditor)
+        public void createDelta(final EditorCommandSet _deltaEditor)
                 throws NumberFormatException, ParseException
         {
             final AbstractDelta delta = _deltaEditor.updateDir(this.path,
@@ -683,7 +750,7 @@ try  {
         }
 
         @Override
-        public void createDelta(final Editor _deltaEditor)
+        public void createDelta(final EditorCommandSet _deltaEditor)
                 throws NumberFormatException, ParseException
         {
             final AbstractDelta delta = _deltaEditor.createDir(this.path,
@@ -712,7 +779,7 @@ try  {
         }
 
         @Override
-        public void createDelta(final Editor _deltaEditor)
+        public void createDelta(final EditorCommandSet _deltaEditor)
                 throws NumberFormatException, ParseException
         {
             final AbstractDelta delta = _deltaEditor.createFile(this.path, "tim",
