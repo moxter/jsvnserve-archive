@@ -114,11 +114,14 @@ public class RepositoryFactory
         DATETIMEFORMAT.setTimeZone(new SimpleTimeZone(0, "GMT"));
     }
 
- //       final SVNURL svnURL = SVNURL.parseURIEncoded( "svn://127.0.0.1:7777/" );
-    final SVNURL svnURL = SVNURL.parseURIEncoded( "file:///Users/tim/Daten/Bosch/svntest/test/svn/" );
+    /**
+     * SVN URL to the original property.
+     */
+    private final SVNURL svnURL;
 
-    public RepositoryFactory() throws SVNException
+    public RepositoryFactory(final String _svnURI) throws SVNException
     {
+        this.svnURL = SVNURL.parseURIDecoded(_svnURI);
         SVNRepositoryFactoryImpl.setup();
         FSRepositoryFactory.setup();
     }
