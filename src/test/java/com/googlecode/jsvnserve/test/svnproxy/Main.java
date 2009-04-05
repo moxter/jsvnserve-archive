@@ -27,18 +27,27 @@ import org.tmatesoft.svn.core.SVNException;
 import com.googlecode.jsvnserve.SVNServer;
 
 /**
+ * Main class to start the test SVN proxy repository.
  *
  * @author jSVNServe Team
  * @version $Id$
  */
 public class Main
 {
+    /**
+     * The first argument is the SVN URI, e.g. &quot;file:///svn/test&quot;.
+     *
+     * @param _args
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws SVNException
+     */
     public static void main(final String... _args)
             throws IOException, InterruptedException, SVNException
     {
         SVNServer svnServer = new SVNServer();
         svnServer.setPort(9999);
-        svnServer.setRepositoryFactory(new RepositoryFactory());
+        svnServer.setRepositoryFactory(new RepositoryFactory(_args[0]));
         svnServer.setCallbackHandler(new SVNProxyCallbackHandler());
         svnServer.start();
         Thread.sleep(100000);
