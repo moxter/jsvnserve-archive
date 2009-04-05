@@ -18,7 +18,7 @@
  * Last Changed By: $Author$
  */
 
-package com.googlecode.jsvnserve.api.delta;
+package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -33,26 +33,28 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * @author jSVNServe Team
  * @version $Id$
  */
-abstract class AbstractDeltaDirectory
-        extends AbstractDelta
+public class DeltaDirectoryCreate
+        extends AbstractDeltaDirectory
 {
-
-    AbstractDeltaDirectory(final Editor editor,
-                           final char _prefix,
-                           final String _path,
-                           final String author,
-                           final Long revision,
-                           final Date date)
+    DeltaDirectoryCreate(final String _token,
+                         final String _path,
+                         final String _lastAuthor,
+                         final Long _committedRevision,
+                         final Date _committedDate)
     {
-        super(editor, _prefix, _path, author, revision, date);
+        super(_token, _path, null, null,  _lastAuthor, _committedRevision, _committedDate);
     }
 
     @Override
-    protected void writeClose(final SVNSessionStreams _streams)
+    protected void writeOpen(final SVNSessionStreams _streams,
+                             final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
-        _streams.writeItemList(new ListElement(Word.CLOSE_DIR,
-                                               new ListElement(this.getToken())));
-
+        _streams.writeItemList(
+                new ListElement(Word.ADD_DIR,
+                                new ListElement(this.getPath(),
+                                                _parentToken, this.getToken(),
+                                                new ListElement())));
+        this.writeAllProperties(_streams, Word.CHANGE_DIR_PROP);
     }
 }

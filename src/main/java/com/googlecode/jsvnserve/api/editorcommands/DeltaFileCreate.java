@@ -18,7 +18,7 @@
  * Last Changed By: $Author$
  */
 
-package com.googlecode.jsvnserve.api.delta;
+package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -37,20 +37,20 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
 
 /**
  *
- * @see Editor#createFile(String, long, Date)
+ * @see EditorCommandSet#createFile(String, long, Date)
  * @author jSVNServe Team
  * @version $Id$
  */
 class DeltaFileCreate
         extends AbstractDelta
 {
-    DeltaFileCreate(final Editor _deltaEditor,
+    DeltaFileCreate(final String _token,
                     final String _path,
                     final String _lastAuthor,
                     final Long _committedRevision,
                     final Date _committedDate)
     {
-        super(_deltaEditor, 'c', _path, _lastAuthor, _committedRevision, _committedDate);
+        super(_token, _path, null, null, _lastAuthor, _committedRevision, _committedDate);
     }
 
     @Override

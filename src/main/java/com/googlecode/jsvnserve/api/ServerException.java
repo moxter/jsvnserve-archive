@@ -39,9 +39,21 @@ public class ServerException
 
     private final static long SVN_ERR_FS_CATEGORY_START = APR_OS_START_USERERR + ( 8 * SVN_ERR_CATEGORY_SIZE);
     private final static long SVN_ERR_RA_CATEGORY_START = APR_OS_START_USERERR + (10 * SVN_ERR_CATEGORY_SIZE);
-
-    public enum ErrorCode
+    private final static long SVN_ERR_CLIENT_CATEGORY_START = APR_OS_START_USERERR + (15 * SVN_ERR_CATEGORY_SIZE);
+    public static enum ErrorCode
     {
+        /**
+         * The error code is unknown.
+         */
+        UNKNOWN(0, "Unknown error"),
+
+        /**
+         * Defines the error code for &quot;Bad property name&quot;. The error
+         * code is used e.g. within commit to check that only allowed revision
+         * properties are defined.
+         */
+        SVN_ERR_CLIENT_PROPERTY_NAME(SVN_ERR_CLIENT_CATEGORY_START + 11, "Bad property name"),
+
         /** @since New in 1.2. */
         SVN_ERR_FS_PATH_ALREADY_LOCKED(SVN_ERR_FS_CATEGORY_START + 35, "Path is already locked"),
 
@@ -90,5 +102,18 @@ public class ServerException
     {
         super(_errorCode.text);
         this.errorCode = _errorCode;
+    }
+
+    public ServerException(final String _message)
+    {
+        super(_message);
+        this.errorCode = null;
+    }
+
+    public ServerException(final String _message,
+                           final Exception _cause)
+    {
+        super(_message, _cause);
+        this.errorCode = null;
     }
 }

@@ -41,6 +41,7 @@ import org.apache.mina.util.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.googlecode.jsvnserve.api.CommitInfo;
 import com.googlecode.jsvnserve.api.Depth;
 import com.googlecode.jsvnserve.api.DirEntry;
 import com.googlecode.jsvnserve.api.DirEntryList;
@@ -49,12 +50,15 @@ import com.googlecode.jsvnserve.api.IRepositoryFactory;
 import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
+import com.googlecode.jsvnserve.api.Properties;
 import com.googlecode.jsvnserve.api.ReportList;
 import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.ChangedPath;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
-import com.googlecode.jsvnserve.api.delta.Editor;
+import com.googlecode.jsvnserve.api.Properties.PropertyKey;
+import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
+import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.StringElement;
@@ -87,9 +91,11 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * <table>
  * <tr><td valign="top"><a name="bool"><b>bool</b> =</a></td>
  *     <td><code style="color:green">true | false</code></td></tr>
- * <tr><td valign="top"><a name="proplist"><b>proplist</b> =</a></td>
+ * <tr><td valign="top"><a name="date"><b>date</b> =</a></td>
+ *     <td><code style="color:green">date:<a href="#string">string</a></code></td></tr>
+ * <tr><td valign="top"><a name="property"><b>property</b> =</a></td>
  *     <td><code style="color:green">( name:<a href="#string">string</a> </code>
- *         <code style="color:green">value:<a href="#string">string</a> ) ... </code></td></tr>
+ *         <code style="color:green">value:<a href="#string">string</a> )</code></td></tr>
  * <tr><td valign="top"><a name="nodekind"><b>node-kind</b> =</a></td>
  *     <td><code style="color:green">none | file | dir | unknown</code></td></tr>
  * <tr><td valign="top" rowspan="8"><a name="lockdesc"><b>lockdesc</b> =</a></td>
@@ -123,12 +129,6 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
 public class SVNServerSession
         extends Thread
 {
-    public static final String PROPERTY_REPOSITORY_UUID = "svn:entry:uuid";
-    public static final String PROPERTY_DIR_ENTRY_AUTHOR = "svn:entry:last-author";
-    public static final String PROPERTY_DIR_ENTRY_REVISION = "svn:entry:committed-rev";
-    public static final String PROPERTY_DIR_ENTRY_DATE = "svn:entry:committed-date";
-    private static final String PROPERTY_DIR_ENTRY_CHECKSUM = "svn:entry:checksum";
-
     private final static Logger LOGGER = LoggerFactory.getLogger(SVNServerSession.class);
 
     /**
@@ -227,7 +227,8 @@ public class SVNServerSession
             this.streams.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
                             new ListElement(1, 2, new ListElement(),
-                                    new ListElement(Word.EDIT_PIPELINE, Word.SVNDIFF1, Word.ABSENT_ENTRIES, Word.COMMIT_REVPRODS,
+                                    new ListElement(Word.EDIT_PIPELINE, Word.SVNDIFF1, Word.ABSENT_ENTRIES,
+                                                    Word.COMMIT_REVPRODS,
                                                     Word.DEPTH,Word.LOG_REVPROPS))));
 
             final ListElement ret = this.streams.readItemList();
@@ -261,6 +262,7 @@ public class SVNServerSession
             while (items != null)  {
                 switch (items.getValue().get(0).getWord())  {
                     case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
+                    case COMMIT:            this.svnCommit(items.getList().get(1).getList());break;
                     case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
                     case GET_FILE:          this.svnGetFile(items.getList().get(1).getList());break;
                     case GET_LATEST_REV:    this.svnGetLatestRev();break;
@@ -503,45 +505,233 @@ public class SVNServerSession
     }
 
     /**
-     * Checks given path and returns related node (path) kind.
-     *
      * <h3>SVN Call:</h3>
-     * <table>
-     * <tr><td><code style="color:green"><nobr>( check-path (</nobr></code></td></tr>
-     * <tr><td rowspan="2"></td><td><code style="color:green">path:<a href="#string">string</a></code></td>
-     *     <td>defines which path must be checked</td></tr>
-     * <tr><td><code style="color:green">( ?rev:<a href="#number">number</a> )</code></td>
-     *     <td>revision for which the information must returned</td></tr>
-     * <tr><td><code style="color:green">) )</code></td></tr>
-     * </table>
+     * <code style="color:green">(get-latest-rev ( ) )</code>
      *
      * <h3>SVN Response:</h3>
-     * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a> ( success ( kind:<a href="nodekind">node-kind</a> ))</code>
+     * <code style="color:green">( rev:<a href="#number">number</a> )</code>
      *
-     * @param _parameters
-     * @throws UnsupportedEncodingException
-     * @throws IOException
      */
-    protected void svnCheckPath(final List<AbstractElement<?>> _parameters)
+    protected void svnGetLatestRev()
             throws UnsupportedEncodingException, IOException
     {
-        // get path
-        final String path = this.buildPath(_parameters.get(0).getString());
-        // get revision
-        final List<AbstractElement<?>> revParams = _parameters.get(1).getList();
-        final Long revision;
-        if (revParams.isEmpty())  {
-            revision = null;
-        } else  {
-            revision = revParams.get(0).getNumber();
+        this.streams.writeItemList(
+                SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                new ListElement(Word.STATUS_SUCCESS,
+                                new ListElement(this.getRepository().getLatestRevision())));
+    }
+
+    /**
+     * Commit changes to the repository.
+     *
+     * <p><b>SVN Call (from client)</b><br/>
+     *
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( commit (</nobr></code></td></tr>
+     * <tr><td rowspan="4"></td><td><code style="color:green">
+     *     logmsg:<a href="#string">string</a></code></td>
+     *     <td>commit message (log of the revision)</td></tr>
+     * <tr><td><nobr><code style="color:green">
+     *     ?( ( lock-path:<a href="#string">string</a>
+     *          lock-token:<a href="#string">string</a> ) ... )</code></nobr></td>
+     *     <td valign="top">list of locked paths with related lock tokens which
+     *         are checked within commit (current existing repository lock
+     *         token and given lock tokens must be equal)</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?keep-locks:<a href="#bool">bool</a></code></td>
+     *     <td><i>true</i> means to keep existings locks; <i>false</i> to
+     *         remove (default)</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?( ?rev-props:<a href="#property">property</a> ... )</code></td>
+     *     <td>list of revision properties (no standard SVN properties!)</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>SVN Response (from server)</b><br/>
+     * If the information of the SVN call is correct, the no authorization
+     * request {@link #NO_AUTHORIZATION_NEEDED} with an empty success
+     * {@link #EMPTY_SUCCESS} is returned.</p>
+     *
+     * <p><b>Describe Delta (from client)</b><br/>
+     * The client switches to editor command set and describes the delta.</p>
+     *
+     * <p><b>Process Delta and Response (from server)</b><br/>
+     * The server processes the delta. If no error occurred, the server sends
+     * the empty success {@link #EMPTY_SUCCESS}, the no authorization request
+     * {@link #NO_AUTHORIZATION_NEEDED} and the commit information:
+     * <table>
+     * <tr><td><code style="color:green"><nobr>(</nobr></code></td></tr>
+     * <tr><td rowspan="4"></td><td><code style="color:green">
+     *         new-rev:<a href="#number">number</a></code></td>
+     *     <td>committed revision number</td></tr>
+     * <tr><td><code style="color:green">
+     *         ( date:<a href="#string">string</a> )</code></td>
+     *     <td>commit date</td></tr>
+     * <tr><td><code style="color:green">
+     *         ( author:<a href="#date">date</a> )</code></td>
+     *     <td>author of the commit (could be different from the authenticated
+     *         user...)</td></tr>
+     * <tr><td><code style="color:green">
+     *         ?( ?post-commit-err:<a href="#string">string</a> ))</code></td>
+     *     <td>Currently no post commit scripts are used and so no errors are
+     *         returned</td></tr>
+     * <tr><td>)</code></td></tr>
+     * </table></p>
+     *
+     * @param _parameters   SVN commit parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @throws URISyntaxException
+     */
+    protected void svnCommit(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException, URISyntaxException
+    {
+        // log message
+        final String logMsg = _parameters.get(0).getString();
+        // locks
+        final Map<String,String> locks = new HashMap<String,String>();
+        if (_parameters.size() > 1)  {
+            for (final AbstractElement<?> lockElem : _parameters.get(1).getList())  {
+                locks.put(lockElem.getList().get(0).getString(),
+                          lockElem.getList().get(1).getString());
+            }
+        }
+        // keep looks
+        final boolean keepLock = (_parameters.size() > 2)
+                                 ? (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE)
+                                 : false;
+        // revision properties (incl. checks for correct revision properties)
+        ErrorCode errorCode = null;
+        String errorMsg = null;
+        final Properties revProps = new Properties();
+        if (_parameters.size() > 3)  {
+            for (final AbstractElement<?> propElem : _parameters.get(3).getList())  {
+                final String propKey = propElem.getList().get(0).getString();
+                final PropertyKey prop = PropertyKey.valueBySVNKey(propKey);
+                if ((prop != null) && (prop != PropertyKey.REVISION_LOG))  {
+                    errorCode = ErrorCode.SVN_ERR_CLIENT_PROPERTY_NAME;
+                    if (prop.isEntry())  {
+errorMsg = "System property '" + propKey + "' can't be set explicitly as revision properties.";
+                    } else if (prop.isRevision())  {
+errorMsg = "Revision property '" + propKey + "' can't be set explicitly as revision properties.";
+                    } else if (prop.isRevision0())  {
+errorMsg = "Property '" + propKey + "' could be only defined on revision 0.";
+                    } else if (prop.isVersioned())  {
+errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revision properties.";
+                    }
+                } else if (prop == null)  {
+                    revProps.put(propKey, propElem.getList().get(1).getString());
+                }
+            }
         }
 
-        final DirEntry entry = this.getRepository().stat(revision, path, false);
+        // if wrong properties was set
+        if (errorCode != null)  {
+            this.streams.writeFailureStatus(errorCode, errorMsg);
+        // all revision properties are correct defined
+        } else  {
+            this.streams.writeItemList(
+                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                    SVNServerSession.EMPTY_SUCCESS);
+
+            final EditorCommandSet editor = new EditorCommandSet(-1);
+            editor.read(this.streams);
+
+            CommitInfo commitInfo = null;
+            ServerException serverException = null;
+            try  {
+                commitInfo = this.repository.commit(logMsg, locks, keepLock, revProps, editor);
+            } catch (final ServerException ex)  {
+                serverException = ex;
+            }
+
+            // commit failed
+            if (serverException != null)  {
+                this.streams.writeFailureStatus(serverException.getMessage());
+            // commit was successfully
+            } else  {
+                this.streams.writeItemList(
+                        SVNServerSession.EMPTY_SUCCESS,
+                        SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                        new ListElement(
+                                commitInfo.getRevision(),
+                                new ListElement(commitInfo.getDate()),
+                                new ListElement(commitInfo.getAuthor()),
+                                new ListElement()));
+            }
+        }
+    }
+
+    /**
+     * params:   ( path:string [ rev:number ] want-props:bool want-contents:bool )
+    response: ( [ checksum:string ] rev:number ( ?props:property ...) )
+    If want-contents is specified, then after sending response, server
+     sends file contents as a series of strings, terminated by the empty
+     string, followed by a second empty command response to indicate
+     whether an error occurred during the sending of the file.
+
+     * @param _parameters
+     * @throws IOException
+     * @throws UnsupportedEncodingException
+     */
+    protected void svnGetFile(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        final String path = this.buildPath(_parameters.get(0).getString());
+        final Long revision = _parameters.get(1).getList().get(0).getNumber();
+        final boolean wantsProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE ? true : false;
+        final boolean wantsContent = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE ? true : false;
+
+        final DirEntry dirEntry = this.getRepository().stat(revision, path, wantsProps);
+
+        final ListElement props = new ListElement();
+        if (wantsProps)  {
+            props.add(new ListElement(PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
+                                      this.getRepository().getUUID().toString()),
+                      new ListElement(PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
+                                      String.valueOf(dirEntry.getRevision())),
+                      new ListElement(PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
+                                      dirEntry.getDate()),
+                      new ListElement(PropertyKey.ENTRY_DIR_ENTRY_CHECKSUM.getSVNKey(),
+                                      dirEntry.getFileMD5()));
+            if (dirEntry.getAuthor() != null)  {
+                props.add(new ListElement(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR.getSVNKey(),
+                                          dirEntry.getAuthor()));
+            }
+            for (final Map.Entry<String,String> prop : dirEntry.getProperties().entrySet())  {
+                props.add(new ListElement(prop.getKey(), prop.getValue()));
+            }
+        }
 
         this.streams.writeItemList(
                 SVNServerSession.NO_AUTHORIZATION_NEEDED,
                 new ListElement(Word.STATUS_SUCCESS,
-                                new ListElement(entry.getKind())));
+                                new ListElement(
+                                        new ListElement(dirEntry.getFileMD5()),
+                                        dirEntry.getRevision(),
+                                        props)));
+
+        if (wantsContent)  {
+            final InputStream in = this.getRepository().getFile(revision, path);
+            final byte[] buffer = new byte[4096];
+            int length = in.read(buffer);
+            while (length >= 0)  {
+                this.streams.writeWithoutFlush(String.valueOf(length));
+                this.streams.writeWithoutFlush(':');
+                this.streams.writeWithoutFlush(buffer, 0, length);
+                this.streams.writeWithoutFlush(' ');
+                this.streams.flush();
+                length = in.read(buffer);
+            }
+            this.streams.write(" 0: ( success ( ) ) ");
+        }
+//        ( success ( ( ) 0: ) ) ( success ( 32:24b42e558b8f74c64939aa4257b1daa1 ) 1000 ( ( 14:svn:entry:uuid 36:cf646e2a-176c-4309-8bfa-14680e0fdf19 ) ( 23:svn:entry:committed-rev 4:1000 ) ( 24:svn:entry:committed-date 27:2009-03-21T12:44:38.200000Z ) ) )
+
+// ( get-file ( 0: ( 7 ) true false ) )
+// ( success ( ( ) 0: ) ) ( success ( ( 32:d977b7f0d2c9ccab4dd60fa300bdcc59 ) 7 ( ( 14:svn:entry:uuid 36:cf646e2a-176c-4309-8bfa-14680e0fdf19 ) ( 23:svn:entry:committed-rev 1:7 ) ( 24:svn:entry:committed-date 27:2009-03-21T00:59:28.960732Z ) ) ) )
+// ( get-file ( 0: ( 7 ) false true ) )
+// ( success ( ( ) 0: ) ) ( success ( ( 32:d977b7f0d2c9ccab4dd60fa300bdcc59 ) 7 ( ) ) ) 1281:<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd">
+
     }
 
     /**
@@ -576,7 +766,7 @@ public class SVNServerSession
      * <tr><td rowspan="3"></td><td><code style="color:green">rev:<a href="number">number</a></code></td>
      *     <td>the revision is the same defined in the SVN call (the directory
      *          information is returned for this revision)</td></tr>
-     * <tr><td><code style="color:green">( ?props:<a href="proplist">proplist</a> )</code></td>
+     * <tr><td><code style="color:green">( ?props:<a href="property">property</a> ... )</code></td>
      *     <td>the list of property for the directory is only returned if
      *         parameter &quot;<code>want-props</code>&quot; in the SVN call
      *         was &quot;<code>true</code>&quot;</td></tr>
@@ -619,14 +809,14 @@ public class SVNServerSession
         // evaluate properties
         final ListElement propList = new ListElement();
         if (wantProps)  {
-            propList.add(new ListElement(SVNServerSession.PROPERTY_REPOSITORY_UUID,
+            propList.add(new ListElement(PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
                                          this.getRepository().getUUID().toString()),
-                         new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_REVISION,
+                         new ListElement(PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
                                          String.valueOf(dirEntry.getRevision())),
-                         new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_DATE,
+                         new ListElement(PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
                                          dirEntry.getDate()));
             if (dirEntry.getAuthor() != null)  {
-                propList.add(new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_AUTHOR,
+                propList.add(new ListElement(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR.getSVNKey(),
                                              dirEntry.getAuthor()));
             }
             for (final Map.Entry<String,String> prop : dirEntry.getProperties().entrySet())  {
@@ -688,92 +878,429 @@ public class SVNServerSession
     }
 
     /**
-     * params:   ( path:string [ rev:number ] want-props:bool want-contents:bool )
-    response: ( [ checksum:string ] rev:number props:proplist )
-    If want-contents is specified, then after sending response, server
-     sends file contents as a series of strings, terminated by the empty
-     string, followed by a second empty command response to indicate
-     whether an error occurred during the sending of the file.
-
+     * Checks given path and returns related node (path) kind.
+     *
+     * <h3>SVN Call:</h3>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( check-path (</nobr></code></td></tr>
+     * <tr><td rowspan="2"></td><td><code style="color:green">path:<a href="#string">string</a></code></td>
+     *     <td>defines which path must be checked</td></tr>
+     * <tr><td><code style="color:green">( ?rev:<a href="#number">number</a> )</code></td>
+     *     <td>revision for which the information must returned</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table>
+     *
+     * <h3>SVN Response:</h3>
+     * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a> ( success ( kind:<a href="nodekind">node-kind</a> ))</code>
+     *
      * @param _parameters
-     * @throws IOException
      * @throws UnsupportedEncodingException
+     * @throws IOException
      */
-    protected void svnGetFile(final List<AbstractElement<?>> _parameters)
+    protected void svnCheckPath(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
+        // get path
         final String path = this.buildPath(_parameters.get(0).getString());
-        final Long revision = _parameters.get(1).getList().get(0).getNumber();
-        final boolean wantsProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE ? true : false;
-        final boolean wantsContent = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE ? true : false;
-
-        final DirEntry dirEntry = this.getRepository().stat(revision, path, wantsProps);
-
-        final ListElement props = new ListElement();
-        if (wantsProps)  {
-            props.add(new ListElement(SVNServerSession.PROPERTY_REPOSITORY_UUID,
-                                      this.getRepository().getUUID().toString()),
-                      new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_REVISION,
-                                      String.valueOf(dirEntry.getRevision())),
-                      new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_DATE,
-                                      dirEntry.getDate()),
-                      new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_CHECKSUM,
-                                      dirEntry.getFileMD5()));
-            if (dirEntry.getAuthor() != null)  {
-                props.add(new ListElement(SVNServerSession.PROPERTY_DIR_ENTRY_AUTHOR,
-                                          dirEntry.getAuthor()));
-            }
-            for (final Map.Entry<String,String> prop : dirEntry.getProperties().entrySet())  {
-                props.add(new ListElement(prop.getKey(), prop.getValue()));
-            }
+        // get revision
+        final List<AbstractElement<?>> revParams = _parameters.get(1).getList();
+        final Long revision;
+        if (revParams.isEmpty())  {
+            revision = null;
+        } else  {
+            revision = revParams.get(0).getNumber();
         }
+
+        final DirEntry entry = this.getRepository().stat(revision, path, false);
 
         this.streams.writeItemList(
                 SVNServerSession.NO_AUTHORIZATION_NEEDED,
                 new ListElement(Word.STATUS_SUCCESS,
-                                new ListElement(
-                                        new ListElement(dirEntry.getFileMD5()),
-                                        dirEntry.getRevision(),
-                                        props)));
+                                new ListElement(entry.getKind())));
+    }
 
-        if (wantsContent)  {
-            final InputStream in = this.getRepository().getFile(revision, path);
-            final byte[] buffer = new byte[4096];
-            int length = in.read(buffer);
-            while (length >= 0)  {
-                this.streams.writeWithoutFlush(String.valueOf(length));
-                this.streams.writeWithoutFlush(':');
-                this.streams.writeWithoutFlush(buffer, 0, length);
-                this.streams.writeWithoutFlush(' ');
-                this.streams.flush();
-                length = in.read(buffer);
-            }
-            this.streams.write(" 0: ( success ( ) ) ");
+    /**
+     *
+     * <h3>SVN Call:</h3>
+     * <code style="color:green">(stat (
+     *      path:<a href="#string">string</a>
+     *      ( rev:<a href="#number">number</a> ) )</code>
+     *
+     * <h3>SVN Response:</h3>
+     * <code style="color:green">( ? ( entry:dirent ) )</code><br/>
+     * <table>
+     * <tr><td valign="top"><b>dirent</b> = </td>
+     *     <td><code style="color:green">kind:<a href="nodekind">node-kind</a></code><br/>
+     *         <code style="color:green">size:<a href="number">number</a></code><br/>
+     *         <code style="color:green">has-props:<a href="bool">bool</a></code><br/>
+     *         <code style="color:green">created-rev:<a href="number">number</a></code><br/>
+     *         <code style="color:green">( created-date:<a href="#string">string</a> )</code><br/>
+     *         <code style="color:green">( ?last-author:<a href="#string">string</a> )</code></td></tr>
+     * </table>
+     * If path is non-existent, an empty response
+     * &quot;<code>( ( ) )</code>&quot; is returned.
+     * If no &quot;<code>created-date</code>&quot; exists, null date
+     * time {@link StringElement#NULL_DATETIME} is used (because a date is
+     * always required). If no &quot;<code>last-author</code>&quot; exists,
+     * only zero length list &quot;<code>( )</code>&quot; is used.
+     *
+     * @param _parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    protected void svnStat(final List<AbstractElement<?>> _parameters)
+           throws UnsupportedEncodingException, IOException
+    {
+        final String path = this.buildPath(_parameters.get(0).getString());
+        final Long revision = _parameters.get(1).getList().get(0).getNumber();
+
+        final DirEntry entry = this.getRepository().stat(revision, path, false);
+
+        if (entry != null)  {
+            this.streams.writeItemList(
+                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                    new ListElement(Word.STATUS_SUCCESS,
+                                    new ListElement(new ListElement(
+                    new ListElement(entry.getKind(),
+                                    entry.getFileSize(),
+                                    Word.BOOLEAN_FALSE,/* hasprops */
+                                    entry.getRevision(),
+                                    new ListElement(entry.getDate() != null ? entry.getDate() : StringElement.NULL_DATETIME),
+                                    (entry.getAuthor() != null)
+                                            ? new ListElement(entry.getAuthor())
+                                            : new ListElement())))));
+        } else  {
+            this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                                       SVNServerSession.EMPTY_SUCCESS);
         }
-//        ( success ( ( ) 0: ) ) ( success ( 32:24b42e558b8f74c64939aa4257b1daa1 ) 1000 ( ( 14:svn:entry:uuid 36:cf646e2a-176c-4309-8bfa-14680e0fdf19 ) ( 23:svn:entry:committed-rev 4:1000 ) ( 24:svn:entry:committed-date 27:2009-03-21T12:44:38.200000Z ) ) )
-
-// ( get-file ( 0: ( 7 ) true false ) )
-// ( success ( ( ) 0: ) ) ( success ( ( 32:d977b7f0d2c9ccab4dd60fa300bdcc59 ) 7 ( ( 14:svn:entry:uuid 36:cf646e2a-176c-4309-8bfa-14680e0fdf19 ) ( 23:svn:entry:committed-rev 1:7 ) ( 24:svn:entry:committed-date 27:2009-03-21T00:59:28.960732Z ) ) ) )
-// ( get-file ( 0: ( 7 ) false true ) )
-// ( success ( ( ) 0: ) ) ( success ( ( 32:d977b7f0d2c9ccab4dd60fa300bdcc59 ) 7 ( ) ) ) 1281:<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Frameset//EN" "http://www.w3.org/TR/html4/frameset.dtd">
-
     }
 
     /**
      * <h3>SVN Call:</h3>
-     * <code style="color:green">(get-latest-rev ( ) )</code>
+     * <table>
+     * <tr><td><code style="color:green">( update (</code></td></tr>
+     * <tr><td rowspan="5"></td><td><code style="color:green">( ?rev:<a href="#number">number</a> )</code></td>
+     *     <td></td></tr>
+     * <tr><td><code style="color:green">target:<a href="#string">string</a></code></td>
+     *     <td></td></tr>
+     * <tr><td><code style="color:green">recurse:<a href="#bool">bool</a></code></td>
+     *     <td></td></tr>
+     * <tr><td><code style="color:green">?depth:<a href="#depth">depth</a></code></td>
+     *     <td></td></tr>
+     * <tr><td><code style="color:green">send_copy_from_param:<a href="#bool">bool</a></code></td>
+     *     <td></td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table>
      *
-     * <h3>SVN Response:</h3>
-     * <code style="color:green">( rev:<a href="#number">number</a> )</code>
+     * <h3>SVN Response from Server to Client:</h3>
+     * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a></code><br/>
+     * Server sends that no authorization is needed.
      *
+     * <h3>SVN Response from Client to Server:</h3>
+     * Client switches to report command set.
+     * ....
+     *
+     * <h3>SVN Respone from Server to Client</h3>
+     * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a></code><br/>
+     * Server switches to editor command set.
+     * After edit completes, server sends response.<br/>
+     * response: ( )
+     *
+     * @param _parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
      */
-    protected void svnGetLatestRev()
+    protected void svnUpdate(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        this.streams.writeItemList(
-                SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                new ListElement(Word.STATUS_SUCCESS,
-                                new ListElement(this.getRepository().getLatestRevision())));
+        // revision number
+        final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
+        final long revision = (revisionParams.isEmpty()) ? -1 : revisionParams.get(0).getNumber();
+        // update path
+        final String path = this.buildPath(_parameters.get(1).getString());
+        // recurse?
+        final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
+        // depth and send copy from parameters
+//        final boolean sendCopyFromParameters;
+        Depth depth = Depth.valueOf(_parameters.get(3).getWord());
+        if (depth == null)  {
+            depth = Depth.UNKNOWN;
+//            sendCopyFromParameters = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
+        } else  {
+//            sendCopyFromParameters = (_parameters.get(4).getWord() == Word.BOOLEAN_TRUE);
+        }
+        if ((depth == Depth.UNKNOWN) && recurse)  {
+            depth = Depth.INFINITY;
+        }
+
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final ReportList report = new ReportList();
+        report.read(this.streams);
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final EditorCommandSet deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
+
+        // editor mode
+        deltaEditor.write(this.streams);
+
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+
+final ListElement result = this.streams.readItemList();
+if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {
+    throw new Error("update does not work");
+}
+
+    }
+
+    /**
+     * Returns for given path the status
+     *
+     * <p><b>SVN Call:</b></br>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( status (</nobr></code>
+     *     </td></tr>
+     * <tr><td  rowspan="4"></td><td><code style="color:green">
+     *     target:<a href="#string">string</a></code></td>
+     *     <td>target path for which a status is searched</td></tr>
+     * <tr><td><code style="color:green">
+     *     recurse:<a href="#bool">bool</a></code></td>
+     *     <td>if true and status scope is a directory or unknown (not
+     *         defined), descends recursively; otherwise not</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?( ?rev:<a href="#number">number</a> )</code></td>
+     *     <td>revision to get status against; if not defined HEAD revision is
+     *         used</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?depth:<a href="#depth">depth</a></code></td>
+     *     <td>defines the depth scope</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * @param _parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @todo description switch to report command set, switch to editor
+     *       command set, empty response
+     */
+    protected void svnStatus(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // status path
+        final String path = this.buildPath(_parameters.get(0).getString());
+        // recurse?
+        final boolean recurse = (_parameters.get(1).getWord() == Word.BOOLEAN_TRUE);
+        // revision number
+        final List<AbstractElement<?>> revisionParams = (_parameters.size() > 1) ? _parameters.get(2).getList() : null;
+        final Long revision = ((revisionParams == null) || revisionParams.isEmpty())
+                              ? null
+                              : revisionParams.get(0).getNumber();
+        // depth
+        Depth depth = (_parameters.size() > 2)
+                      ? Depth.valueOf(_parameters.get(3).getWord())
+                      : Depth.UNKNOWN;
+        if (depth == null)  {
+            depth = Depth.UNKNOWN;
+        }
+        if ((depth == Depth.UNKNOWN) && recurse)  {
+            depth = Depth.INFINITY;
+        }
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final ReportList report = new ReportList();
+        report.read(this.streams);
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final EditorCommandSet deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
+
+        // editor mode
+        deltaEditor.write(this.streams);
+
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+    }
+
+    /**
+     * <h3>SVN Call:</h3>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( log (</nobr></code></td></tr>
+     * <tr><td  rowspan="8"></td><td><code style="color:green">
+     *     ( target-path:<a href="#string">string</a> ... )</code></td>
+     *     <td>defines the path for which the log is requested; only one path
+     *     is supported</td></tr>
+     * <tr><td><code style="color:green">
+     *     ( start-rev:<a href="#number">number</a> )</code></td>
+     *     <td>defines revision to start log with</td></tr>
+     * <tr><td><code style="color:green">
+     *     ( end-rev:<a href="#number">number</a> )</code></td>
+     *     <td>defines the revision to end log at</td></tr>
+     * <tr><td valign="top"><code style="color:green">
+     *     changed-paths:<a href="#bool">bool</a></code></td>
+     *     <td>if set to &quot;<code>true</code>&quot; then revision
+     *         information must also include all changed paths per revision
+     *         (the &quot;<code>( change:changed-path-entry )...</code>&quot;
+     *         in the SVN response); otherwise not</td></tr>
+     * <tr><td><code style="color:green">
+     *     strict-node:<a href="#bool">bool</a></code></td>
+     *     <td>currently ignored</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?limit:<a href="#number">number</a></code></td>
+     *     <td>currently ignored</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?include-merged-revisions:<a href="#bool">bool</a></code></td>
+     *     <td>currently ignored</td></tr>
+     * <tr><td><code style="color:green">
+     *     all-revprops | revprops ( revprop:<a href="#string">string</a> ... )
+     *     </code></td>
+     *     <td>currently ignored</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table>
+     *
+     *
+     * <h3>SVN Response:</h3>
+     * <pre>
+     * ( log:log-entry ) ... done ( success ( ) )</pre>
+     * <table>
+     * <tr><td valign="top" rowspan="9"><b>log-entry</b> = </td>
+     *         <td valign="top"><code style="color:green">( ( change:changed-path-entry ) ... )</code></td>
+     *         <td>the change path entries are only included if
+     *             &quot;<code>changed-paths</code>&quot; from the SVN call was
+     *             set to &quot;<code>true</code>; otherwise only zero length
+     *             list <nobr>&quot;<code>( )</code>&quot;</nobr> is used</td></tr>
+     *     <tr><td><code style="color:green">rev:<a href="#number">number</a></code></td></tr>
+     *     <tr><td><code style="color:green">( author:<a href="#string">string</a> )</code></td></tr>
+     *     <tr><td><code style="color:green">( date:<a href="#string">string</a> )</code></td></tr>
+     *     <tr><td><code style="color:green">( message:<a href="#string">string</a> )</code></td></tr>
+     *     <tr><td><code style="color:green">has-children:<a href="#bool">bool</a></code></td></tr>
+     *     <tr><td><code style="color:green">invalid-revnum:<a href="#bool">bool</a></code></td></tr>
+     *     <tr><td><code style="color:green">revprop-count:<a href="#number">number</a></code></td></tr>
+     *     <tr><td><code style="color:green">( rev-props:<a href="#property">property</a> ... )</code></td></tr>
+     * <tr><td valign="top" rowspan="3"><nobr><b>changed-path-entry</b> =</nobr></td>
+     *         <td><code style="color:green">path:<a href="#string">string</a></code></td></tr>
+     *     <tr><td valign="top"><code style="color:green">A|D|R|M</code></td>
+     *          <td>defines the modified flag:<br/>
+     *              A: element is added<br/>
+     *              D: element is deleted<br/>
+     *              R: replaced(?)<br/>
+     *              M: content is modified</td></tr>
+     *     <tr><td valign="top"><nobr><code style="color:green">
+     *               ( ?copy-path:<a href="#string">string</a>
+     *                 ?copy-rev:<a href="#number">number</a> )</code></nobr></td>
+     *         <td>The copy path and revision value are only defined if the
+     *             modified kind is A (added). Otherwise only the open and
+     *             close brace is written.</td></tr>
+     * </table>
+     *
+     * @param _parameters     SVN log parameter
+     * @throws IOException
+     * @throws UnsupportedEncodingException
+     */
+    protected void svnLog(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // get paths from parameter list
+        final List<AbstractElement<?>> pathParameters = _parameters.get(0).getList();
+        final String[] paths = new String[pathParameters.size()];
+        int idx = 0;
+        for (final AbstractElement<?> pathParameter : pathParameters)  {
+            paths[idx] = this.buildPath(pathParameter.getString());
+            idx++;
+        }
+
+        final long startRevision = _parameters.get(1).getList().get(0).getNumber();
+        final long endRevision = _parameters.get(2).getList().get(0).getNumber();
+        final boolean inclChangedPaths = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
+
+        final LogEntryList logEntryList = this.getRepository().getLog(startRevision,
+                                                                 endRevision,
+                                                                 inclChangedPaths,
+                                                                 paths);
+        final List<ListElement> list = new ArrayList<ListElement>();
+        for (final LogEntry logEntry : logEntryList.getLogEntries())  {
+            final ListElement oneLog = new ListElement();
+            list.add(oneLog);
+
+            final ListElement changedPathsLE = new ListElement();
+            for (final ChangedPath changedPath : logEntry.getChangedPaths())  {
+                final ListElement changedPathLE = new ListElement(changedPath.getPath(),
+                                                                  changedPath.getKind());
+                if (changedPath.getCopiedFromPath() != null)  {
+                    changedPathLE.add((new ListElement(changedPath.getCopiedFromPath(),
+                                                       changedPath.getCopiedFromRevision())));
+                } else  {
+                    changedPathLE.add(new ListElement());
+                }
+                changedPathsLE.add(changedPathLE);
+            }
+            oneLog.add(changedPathsLE,
+                       logEntry.getRevision(),
+                       (logEntry.getAuthor() != null) ? new ListElement(logEntry.getAuthor()) : new ListElement(),
+                       new ListElement(logEntry.getModified()),
+                       (logEntry.getComment() != null) ? new ListElement(logEntry.getComment()) : new ListElement(),
+                       Word.BOOLEAN_FALSE,
+                       Word.BOOLEAN_FALSE,
+                       0,
+                       new ListElement());
+        }
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+        this.streams.writeItemList(list.toArray(new ListElement[list.size()]));
+        this.streams.write("done ( success ( ) ) ");
+    }
+
+    /**
+     * Returns the path locations in revision history.
+     *
+     * <p><b>SVN Call:</b></br>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( get-locations (</nobr></code>
+     *     </td></tr>
+     * <tr><td  rowspan="3"></td><td><code style="color:green">
+     *     path:<a href="#string">string</a></code></td>
+     *     <td>path to look up</td></tr>
+     * <tr><td><code style="color:green">
+     *     peg-rev:<a href="#number">number</a></code></td>
+     *     <td>revision number in which the path are looked up</td></tr>
+     * <tr><td><code style="color:green">
+     *     ( rev:<a href="#number">number</a> ... )</code></td>
+     *     <td>list of interesting revisions</td></tr>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>SVN Response:</b></br>
+     * Before the reponse is sent, the server sends all location entries (see
+     * {@link LocationEntries#write(SVNServerSession)}). The response itself
+     * is the empty success response {@link #EMPTY_SUCCESS}.</p>
+     *
+     * @param _parameters   SVN get locations parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @see LocationEntries
+     */
+    protected void svnGetLocations(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // location path
+        final String path = this.buildPath(_parameters.get(0).getString());
+        // peg revision number
+        final long pegRevision = _parameters.get(1).getNumber();
+        // interesting revisions
+        final List<AbstractElement<?>> revList = _parameters.get(2).getList();
+        final long[] revisions = new long[revList.size()];
+        int idx = 0;
+        for (final AbstractElement<?> revElem : revList)  {
+            revisions[idx++] = revElem.getNumber();
+        }
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final LocationEntries entries = this.repository.getLocations(pegRevision, path, revisions);
+        entries.write(this.streams);
+
+        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -1063,394 +1590,10 @@ public class SVNServerSession
         final URI uri = new URI(_parameters.get(0).getString());
         final String path = "".equals(uri.getPath()) ? "/" : uri.getPath();
 
-        this.currentPath = path.substring(this.repository.getRootPath().length()
+        this.currentPath = path.substring(this.repository.getLocationPath().length()
                                                   + this.repository.getRepositoryPath().length());
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
                                    new ListElement(Word.STATUS_SUCCESS, new ListElement()));
-    }
-
-    /**
-     *
-     * <h3>SVN Call:</h3>
-     * <code style="color:green">(stat (
-     *      path:<a href="#string">string</a>
-     *      ( rev:<a href="#number">number</a> ) )</code>
-     *
-     * <h3>SVN Response:</h3>
-     * <code style="color:green">( ? ( entry:dirent ) )</code><br/>
-     * <table>
-     * <tr><td valign="top"><b>dirent</b> = </td>
-     *     <td><code style="color:green">kind:<a href="nodekind">node-kind</a></code><br/>
-     *         <code style="color:green">size:<a href="number">number</a></code><br/>
-     *         <code style="color:green">has-props:<a href="bool">bool</a></code><br/>
-     *         <code style="color:green">created-rev:<a href="number">number</a></code><br/>
-     *         <code style="color:green">( created-date:<a href="#string">string</a> )</code><br/>
-     *         <code style="color:green">( ?last-author:<a href="#string">string</a> )</code></td></tr>
-     * </table>
-     * If path is non-existent, an empty response
-     * &quot;<code>( ( ) )</code>&quot; is returned.
-     * If no &quot;<code>created-date</code>&quot; exists, null date
-     * time {@link StringElement#NULL_DATETIME} is used (because a date is
-     * always required). If no &quot;<code>last-author</code>&quot; exists,
-     * only zero length list &quot;<code>( )</code>&quot; is used.
-     *
-     * @param _parameters
-     * @throws UnsupportedEncodingException
-     * @throws IOException
-     */
-    protected void svnStat(final List<AbstractElement<?>> _parameters)
-           throws UnsupportedEncodingException, IOException
-    {
-        final String path = this.buildPath(_parameters.get(0).getString());
-        final Long revision = _parameters.get(1).getList().get(0).getNumber();
-
-        final DirEntry entry = this.getRepository().stat(revision, path, false);
-
-        if (entry != null)  {
-            this.streams.writeItemList(
-                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                    new ListElement(Word.STATUS_SUCCESS,
-                                    new ListElement(new ListElement(
-                    new ListElement(entry.getKind(),
-                                    entry.getFileSize(),
-                                    Word.BOOLEAN_FALSE,/* hasprops */
-                                    entry.getRevision(),
-                                    new ListElement(entry.getDate() != null ? entry.getDate() : StringElement.NULL_DATETIME),
-                                    (entry.getAuthor() != null)
-                                            ? new ListElement(entry.getAuthor())
-                                            : new ListElement())))));
-        } else  {
-            this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                                       SVNServerSession.EMPTY_SUCCESS);
-        }
-    }
-
-    /**
-     * <h3>SVN Call:</h3>
-     * <table>
-     * <tr><td><code style="color:green">( update (</code></td></tr>
-     * <tr><td rowspan="5"></td><td><code style="color:green">( ?rev:<a href="#number">number</a> )</code></td>
-     *     <td></td></tr>
-     * <tr><td><code style="color:green">target:<a href="#string">string</a></code></td>
-     *     <td></td></tr>
-     * <tr><td><code style="color:green">recurse:<a href="#bool">bool</a></code></td>
-     *     <td></td></tr>
-     * <tr><td><code style="color:green">?depth:<a href="#depth">depth</a></code></td>
-     *     <td></td></tr>
-     * <tr><td><code style="color:green">send_copy_from_param:<a href="#bool">bool</a></code></td>
-     *     <td></td></tr>
-     * <tr><td><code style="color:green">) )</code></td></tr>
-     * </table>
-     *
-     * <h3>SVN Response from Server to Client:</h3>
-     * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a></code><br/>
-     * Server sends that no authorization is needed.
-     *
-     * <h3>SVN Response from Client to Server:</h3>
-     * Client switches to report command set.
-     * ....
-     *
-     * <h3>SVN Respone from Server to Client</h3>
-     * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a></code><br/>
-     * Server switches to editor command set.
-     * After edit completes, server sends response.<br/>
-     * response: ( )
-     *
-     * @param _parameters
-     * @throws UnsupportedEncodingException
-     * @throws IOException
-     */
-    protected void svnUpdate(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException
-    {
-        // revision number
-        final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
-        final long revision = (revisionParams.isEmpty()) ? -1 : revisionParams.get(0).getNumber();
-        // update path
-        final String path = this.buildPath(_parameters.get(1).getString());
-        // recurse?
-        final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
-        // depth and send copy from parameters
-//        final boolean sendCopyFromParameters;
-        Depth depth = Depth.valueOf(_parameters.get(3).getWord());
-        if (depth == null)  {
-            depth = Depth.UNKNOWN;
-//            sendCopyFromParameters = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
-        } else  {
-//            sendCopyFromParameters = (_parameters.get(4).getWord() == Word.BOOLEAN_TRUE);
-        }
-        if ((depth == Depth.UNKNOWN) && recurse)  {
-            depth = Depth.INFINITY;
-        }
-
-
-        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-
-        final ReportList report = new ReportList();
-        report.read(this.streams);
-
-        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-
-        final Editor deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
-
-        // editor mode
-        deltaEditor.write(this.streams);
-
-        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
-
-final ListElement result = this.streams.readItemList();
-if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {
-    throw new Error("update does not work");
-}
-
-    }
-
-    /**
-     * Returns for given path the status
-     *
-     * <p><b>SVN Call:</b></br>
-     * <table>
-     * <tr><td><code style="color:green"><nobr>( status (</nobr></code>
-     *     </td></tr>
-     * <tr><td  rowspan="4"></td><td><code style="color:green">
-     *     target:<a href="#string">string</a></code></td>
-     *     <td>target path for which a status is searched</td></tr>
-     * <tr><td><code style="color:green">
-     *     recurse:<a href="#bool">bool</a></code></td>
-     *     <td>if true and status scope is a directory or unknown (not
-     *         defined), descends recursively; otherwise not</td></tr>
-     * <tr><td><code style="color:green">
-     *     ?( ?rev:<a href="#number">number</a> )</code></td>
-     *     <td>revision to get status against; if not defined HEAD revision is
-     *         used</td></tr>
-     * <tr><td><code style="color:green">
-     *     ?depth:<a href="#depth">depth</a></code></td>
-     *     <td>defines the depth scope</td></tr>
-     * <tr><td><code style="color:green">) )</code></td></tr>
-     * </table></p>
-     *
-     * @param _parameters
-     * @throws UnsupportedEncodingException
-     * @throws IOException
-     * @todo description switch to report command set, switch to editor
-     *       command set, empty response
-     */
-    protected void svnStatus(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException
-    {
-        // status path
-        final String path = this.buildPath(_parameters.get(0).getString());
-        // recurse?
-        final boolean recurse = (_parameters.get(1).getWord() == Word.BOOLEAN_TRUE);
-        // revision number
-        final List<AbstractElement<?>> revisionParams = (_parameters.size() > 1) ? _parameters.get(2).getList() : null;
-        final Long revision = ((revisionParams == null) || revisionParams.isEmpty())
-                              ? null
-                              : revisionParams.get(0).getNumber();
-        // depth
-        Depth depth = (_parameters.size() > 2)
-                      ? Depth.valueOf(_parameters.get(3).getWord())
-                      : Depth.UNKNOWN;
-        if (depth == null)  {
-            depth = Depth.UNKNOWN;
-        }
-        if ((depth == Depth.UNKNOWN) && recurse)  {
-            depth = Depth.INFINITY;
-        }
-
-        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-
-        final ReportList report = new ReportList();
-        report.read(this.streams);
-
-        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-
-        final Editor deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
-
-        // editor mode
-        deltaEditor.write(this.streams);
-
-        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
-    }
-
-    /**
-     * <h3>SVN Call:</h3>
-     * <table>
-     * <tr><td><code style="color:green"><nobr>( log (</nobr></code></td></tr>
-     * <tr><td  rowspan="8"></td><td><code style="color:green">
-     *     ( target-path:<a href="#string">string</a> ... )</code></td>
-     *     <td>defines the path for which the log is requested; only one path
-     *     is supported</td></tr>
-     * <tr><td><code style="color:green">
-     *     ( start-rev:<a href="#number">number</a> )</code></td>
-     *     <td>defines revision to start log with</td></tr>
-     * <tr><td><code style="color:green">
-     *     ( end-rev:<a href="#number">number</a> )</code></td>
-     *     <td>defines the revision to end log at</td></tr>
-     * <tr><td valign="top"><code style="color:green">
-     *     changed-paths:<a href="#bool">bool</a></code></td>
-     *     <td>if set to &quot;<code>true</code>&quot; then revision
-     *         information must also include all changed paths per revision
-     *         (the &quot;<code>( change:changed-path-entry )...</code>&quot;
-     *         in the SVN response); otherwise not</td></tr>
-     * <tr><td><code style="color:green">
-     *     strict-node:<a href="#bool">bool</a></code></td>
-     *     <td>currently ignored</td></tr>
-     * <tr><td><code style="color:green">
-     *     ?limit:<a href="#number">number</a></code></td>
-     *     <td>currently ignored</td></tr>
-     * <tr><td><code style="color:green">
-     *     ?include-merged-revisions:<a href="#bool">bool</a></code></td>
-     *     <td>currently ignored</td></tr>
-     * <tr><td><code style="color:green">
-     *     all-revprops | revprops ( revprop:<a href="#string">string</a> ... )
-     *     </code></td>
-     *     <td>currently ignored</td></tr>
-     * <tr><td><code style="color:green">) )</code></td></tr>
-     * </table>
-     *
-     *
-     * <h3>SVN Response:</h3>
-     * <pre>
-     * ( log:log-entry ) ... done ( success ( ) )</pre>
-     * <table>
-     * <tr><td valign="top" rowspan="9"><b>log-entry</b> = </td>
-     *         <td valign="top"><code style="color:green">( ( change:changed-path-entry ) ... )</code></td>
-     *         <td>the change path entries are only included if
-     *             &quot;<code>changed-paths</code>&quot; from the SVN call was
-     *             set to &quot;<code>true</code>; otherwise only zero length
-     *             list <nobr>&quot;<code>( )</code>&quot;</nobr> is used</td></tr>
-     *     <tr><td><code style="color:green">rev:<a href="#number">number</a></code></td></tr>
-     *     <tr><td><code style="color:green">( author:<a href="#string">string</a> )</code></td></tr>
-     *     <tr><td><code style="color:green">( date:<a href="#string">string</a> )</code></td></tr>
-     *     <tr><td><code style="color:green">( message:<a href="#string">string</a> )</code></td></tr>
-     *     <tr><td><code style="color:green">has-children:<a href="#bool">bool</a></code></td></tr>
-     *     <tr><td><code style="color:green">invalid-revnum:<a href="#bool">bool</a></code></td></tr>
-     *     <tr><td><code style="color:green">revprop-count:<a href="#number">number</a></code></td></tr>
-     *     <tr><td><code style="color:green">rev-props:<a href="#proplist">proplist</a></code></td></tr>
-     * <tr><td valign="top" rowspan="3"><nobr><b>changed-path-entry</b> =</nobr></td>
-     *         <td><code style="color:green">path:<a href="#string">string</a></code></td></tr>
-     *     <tr><td valign="top"><code style="color:green">A|D|R|M</code></td>
-     *          <td>defines the modified flag:<br/>
-     *              A: element is added<br/>
-     *              D: element is deleted<br/>
-     *              R: replaced(?)<br/>
-     *              M: content is modified</td></tr>
-     *     <tr><td valign="top"><nobr><code style="color:green">
-     *               ( ?copy-path:<a href="#string">string</a>
-     *                 ?copy-rev:<a href="#number">number</a> )</code></nobr></td>
-     *         <td>The copy path and revision value are only defined if the
-     *             modified kind is A (added). Otherwise only the open and
-     *             close brace is written.</td></tr>
-     * </table>
-     *
-     * @param _parameters     SVN log parameter
-     * @throws IOException
-     * @throws UnsupportedEncodingException
-     */
-    protected void svnLog(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException
-    {
-        // get paths from parameter list
-        final List<AbstractElement<?>> pathParameters = _parameters.get(0).getList();
-        final String[] paths = new String[pathParameters.size()];
-        int idx = 0;
-        for (final AbstractElement<?> pathParameter : pathParameters)  {
-            paths[idx] = this.buildPath(pathParameter.getString());
-            idx++;
-        }
-
-        final long startRevision = _parameters.get(1).getList().get(0).getNumber();
-        final long endRevision = _parameters.get(2).getList().get(0).getNumber();
-        final boolean inclChangedPaths = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
-
-        final LogEntryList logEntryList = this.getRepository().getLog(startRevision,
-                                                                 endRevision,
-                                                                 inclChangedPaths,
-                                                                 paths);
-        final List<ListElement> list = new ArrayList<ListElement>();
-        for (final LogEntry logEntry : logEntryList.getLogEntries())  {
-            final ListElement oneLog = new ListElement();
-            list.add(oneLog);
-
-            final ListElement changedPathsLE = new ListElement();
-            for (final ChangedPath changedPath : logEntry.getChangedPaths())  {
-                final ListElement changedPathLE = new ListElement(changedPath.getPath(),
-                                                                  changedPath.getKind());
-                if (changedPath.getCopiedFromPath() != null)  {
-                    changedPathLE.add((new ListElement(changedPath.getCopiedFromPath(),
-                                                       changedPath.getCopiedFromRevision())));
-                } else  {
-                    changedPathLE.add(new ListElement());
-                }
-                changedPathsLE.add(changedPathLE);
-            }
-            oneLog.add(changedPathsLE,
-                       logEntry.getRevision(),
-                       (logEntry.getAuthor() != null) ? new ListElement(logEntry.getAuthor()) : new ListElement(),
-                       new ListElement(logEntry.getModified()),
-                       (logEntry.getComment() != null) ? new ListElement(logEntry.getComment()) : new ListElement(),
-                       Word.BOOLEAN_FALSE,
-                       Word.BOOLEAN_FALSE,
-                       0,
-                       new ListElement());
-        }
-
-        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-        this.streams.writeItemList(list.toArray(new ListElement[list.size()]));
-        this.streams.write("done ( success ( ) ) ");
-    }
-
-    /**
-     * Returns the path locations in revision history.
-     *
-     * <p><b>SVN Call:</b></br>
-     * <table>
-     * <tr><td><code style="color:green"><nobr>( get-locations (</nobr></code>
-     *     </td></tr>
-     * <tr><td  rowspan="3"></td><td><code style="color:green">
-     *     path:<a href="#string">string</a></code></td>
-     *     <td>path to look up</td></tr>
-     * <tr><td><code style="color:green">
-     *     peg-rev:<a href="#number">number</a></code></td>
-     *     <td>revision number in which the path are looked up</td></tr>
-     * <tr><td><code style="color:green">
-     *     ( rev:<a href="#number">number</a> ... )</code></td>
-     *     <td>list of interesting revisions</td></tr>
-     * <tr><td><code style="color:green">) )</code></td></tr>
-     * </table></p>
-     *
-     * <p><b>SVN Response:</b></br>
-     * Before the reponse is sent, the server sends all location entries (see
-     * {@link LocationEntries#write(SVNServerSession)}). The response itself
-     * is the empty success response {@link #EMPTY_SUCCESS}.</p>
-     *
-     * @param _parameters   SVN get locations parameters
-     * @throws UnsupportedEncodingException
-     * @throws IOException
-     * @see LocationEntries
-     */
-    protected void svnGetLocations(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException
-    {
-        // location path
-        final String path = this.buildPath(_parameters.get(0).getString());
-        // peg revision number
-        final long pegRevision = _parameters.get(1).getNumber();
-        // interesting revisions
-        final List<AbstractElement<?>> revList = _parameters.get(2).getList();
-        final long[] revisions = new long[revList.size()];
-        int idx = 0;
-        for (final AbstractElement<?> revElem : revList)  {
-            revisions[idx++] = revElem.getNumber();
-        }
-
-        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-
-        final LocationEntries entries = this.repository.getLocations(pegRevision, path, revisions);
-        entries.write(this.streams);
-
-        this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
     }
 
     /**
@@ -1468,6 +1611,18 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
                 completePath.append(_path);
         }
         return completePath.toString();
+    }
+
+    public String extractPathFromURL(final String _path)
+            throws URISyntaxException
+    {
+        final URI pathURI = new URI(_path);
+        final String completePath = pathURI.getPath();
+        final int repPathLength = this.getRepository().getRepositoryPath().length();
+        if (!this.getRepository().getRepositoryPath().toString().equals(completePath.substring(0, repPathLength)))  {
+            throw new Error("unkown URI " + pathURI);
+        }
+        return completePath.substring(repPathLength);
     }
 
     public IRepository getRepository()

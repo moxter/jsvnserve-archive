@@ -27,7 +27,7 @@ import java.util.UUID;
 
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
-import com.googlecode.jsvnserve.api.delta.Editor;
+import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
 
 /**
  *
@@ -49,20 +49,20 @@ public interface IRepository
      * {@link IRepositoryFactory#createRepository(String, String)}.
      *
      * @return repository path
-     * @see #getRootPath()
+     * @see #getLocationPath()
      * @see IRepositoryFactory#createRepository(String, String)
      */
     public CharSequence getRepositoryPath();
 
     /**
-     * Returns the root path within the repository. For explanation see
+     * Returns the location path within the repository. For explanation see
      * {@link IRepositoryFactory#createRepository(String, String)}.
      *
      * @return root path within the repository
      * @see #getRepositoryPath()
      * @see IRepositoryFactory#createRepository(String, String)
      */
-    public CharSequence getRootPath();
+    public CharSequence getLocationPath();
 
     /**
      * Must return for this repository current latest revision.
@@ -70,6 +70,27 @@ public interface IRepository
      * @return current latest revision
      */
     public long getLatestRevision();
+
+    /**
+     * Commit changes to the repository. The path root of the commit is current
+     * repository location (see {@link #getLocationPath}).
+     *
+     * @param _logMessage       commit message (log of the revision)
+     * @param _locks            map of locks with path as key and lock token as
+     *                          value; the lock token must correct for each
+     *                          committed and locked path
+     * @param _keepLocks        <i>true</i> means to keep existing locks;
+     *                          <i>false</i> to release all locks after commit
+     * @param _revisionProps    custom specific revision properties
+     * @param _editor           editor command set
+     * @throws ServerException if commit failed
+     */
+    public CommitInfo commit(final String _logMessage,
+                             final Map<String,String> _locks,
+                             final boolean _keepLocks,
+                             final Properties _revisionProps,
+                             final EditorCommandSet _editor)
+            throws ServerException;
 
     /**
      *
@@ -197,10 +218,10 @@ public interface IRepository
      *                              the client
      * @return
      */
-    public Editor getStatus(final Long _revision,
-                            final String _path,
-                            final Depth _depth,
-                            final ReportList _report);
+    public EditorCommandSet getStatus(final Long _revision,
+                                      final String _path,
+                                      final Depth _depth,
+                                      final ReportList _report);
 
     /**
      * <p>Returns the path locations in revision history. The location of a

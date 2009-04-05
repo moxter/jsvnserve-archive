@@ -18,7 +18,7 @@
  * Last Changed By: $Author$
  */
 
-package com.googlecode.jsvnserve.api.delta;
+package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -33,29 +33,29 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * @author jSVNServe Team
  * @version $Id$
  */
-class DeltaDirectoryOpen
-        extends AbstractDeltaDirectory
+public abstract class AbstractDeltaDirectory
+        extends AbstractDelta
 {
-    DeltaDirectoryOpen(final Editor _deltaEditor,
-                       final String _path,
-                       final String _lastAuthor,
-                       final Long _committedRevision,
-                       final Date _committedDate)
+
+    AbstractDeltaDirectory(final String _token,
+                           final String _path,
+                           final String _copiedPath,
+                           final Long _copiedRevision,
+                           final String _author,
+                           final Long _revision,
+                           final Date _date)
     {
-        super(_deltaEditor, 'd', _path, _lastAuthor, _committedRevision, _committedDate);
+        super(_token, _path,
+              _copiedPath, _copiedRevision,
+              _author, _revision, _date);
     }
 
     @Override
-    protected void writeOpen(final SVNSessionStreams _streams,
-                             final String _parentToken)
+    protected void writeClose(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException
     {
-        _streams.writeItemList(
-                new ListElement(Word.OPEN_DIR,
-                                new ListElement(this.getPath(),
-                                                _parentToken,
-                                                this.getToken(),
-                                                new ListElement())));
-        this.writeAllProperties(_streams, Word.CHANGE_DIR_PROP);
+        _streams.writeItemList(new ListElement(Word.CLOSE_DIR,
+                                               new ListElement(this.getToken())));
+
     }
 }
