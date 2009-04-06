@@ -20,6 +20,7 @@
 
 package com.googlecode.jsvnserve;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -280,6 +281,8 @@ public class SVNServerSession
                 }
                 items = this.streams.readItemList();
             }
+        } catch (final EOFException e)  {
+            // is thrown from the SaslInputStream
         } catch (final UnsupportedEncodingException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
@@ -1022,7 +1025,9 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
         // depth and send copy from parameters
 //        final boolean sendCopyFromParameters;
-        Depth depth = Depth.valueOf(_parameters.get(3).getWord());
+        Depth depth = (_parameters.size() > 3)
+                      ? Depth.valueOf(_parameters.get(3).getWord())
+                      : Depth.UNKNOWN;
         if (depth == null)  {
             depth = Depth.UNKNOWN;
 //            sendCopyFromParameters = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
