@@ -93,6 +93,14 @@ public class SVNServer
     private CallbackHandler callbackHandler;
 
     /**
+     * Acceptor to handle I/O's.
+     *
+     * @see #start()
+     * @see #stop()
+     */
+    private IoAcceptor acceptor;
+
+    /**
      *
      * @param _repositoryFactory
      */
@@ -140,13 +148,24 @@ public class SVNServer
      * {@link #port}.
      *
      * @see #port
+     * @see #acceptor
      */
     public void start()
             throws IOException
     {
-        final IoAcceptor acceptor = new NioSocketAcceptor();
-        acceptor.setHandler(new SVNServerHandler());
-        acceptor.bind(new InetSocketAddress(this.port));
+        this.acceptor = new NioSocketAcceptor();
+        this.acceptor.setHandler(new SVNServerHandler());
+        this.acceptor.bind(new InetSocketAddress(this.port));
+    }
+
+    /**
+     * Stops the SVN server.
+     *
+     * @see #acceptor
+     */
+    public void stop()
+    {
+        this.acceptor.dispose();
     }
 
     /**
@@ -179,7 +198,7 @@ public class SVNServer
                                                                SVNServer.this.callbackHandler);
             svnServer.start();
         }
-
+/*
         @Override
         public void sessionClosed(IoSession session)
         throws Exception
@@ -190,6 +209,7 @@ super.sessionClosed(session);
 System.out.println("sessionClosed.end");
 
         }
+*/
     }
 
     /**
