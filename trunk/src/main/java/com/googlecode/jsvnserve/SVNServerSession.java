@@ -240,7 +240,7 @@ public class SVNServerSession
 
             // if no user is defined, user must authenticate
             if (this.user == null)  {
-                this.authenticate(hostUri.getHost());
+                authenticate(hostUri.getHost());
             // otherwise no autorization needed!
             } else  {
                 this.streams.writeItemList(NO_AUTHORIZATION_NEEDED);
@@ -249,34 +249,34 @@ public class SVNServerSession
             this.repository = this.repositoryFactory.createRepository(this.user,
                     "".equals(hostUri.getPath()) ? "/" : hostUri.getPath());
 
-            URI rootURI = new URI(hostUri.getScheme(),
+            final URI rootURI = new URI(hostUri.getScheme(),
                     null, hostUri.getHost(), hostUri.getPort(),
-                    this.getRepository().getRepositoryPath().toString(), null, null);
+                    getRepository().getRepositoryPath().toString(), null, null);
 
             this.streams.writeItemList(
                     new ListElement(Word.STATUS_SUCCESS,
-                            new ListElement(this.getRepository().getUUID().toString(),
+                            new ListElement(getRepository().getUUID().toString(),
                                             rootURI.toASCIIString(),
                                             new ListElement(Word.MERGEINFO))));
 
             ListElement items = this.streams.readItemList();
             while (items != null)  {
                 switch (items.getValue().get(0).getWord())  {
-                    case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
-                    case COMMIT:            this.svnCommit(items.getList().get(1).getList());break;
-                    case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
-                    case GET_FILE:          this.svnGetFile(items.getList().get(1).getList());break;
-                    case GET_LATEST_REV:    this.svnGetLatestRev();break;
-                    case GET_LOCATIONS:     this.svnGetLocations(items.getList().get(1).getList());break;
-                    case GET_LOCK:          this.svnGetLock(items.getList().get(1).getList());break;
-                    case GET_LOCKS:         this.svnGetLocks(items.getList().get(1).getList());break;
-                    case LOCK_MANY:         this.svnLockMany(items.getList().get(1).getList());break;
-                    case LOG:               this.svnLog(items.getList().get(1).getList());break;
-                    case REPARENT:          this.svnReparent(items.getList().get(1).getList());break;
-                    case STAT:              this.svnStat(items.getList().get(1).getList());break;
-                    case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
-                    case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
-                    case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
+                    case CHECK_PATH:        svnCheckPath(items.getList().get(1).getList());break;
+                    case COMMIT:            svnCommit(items.getList().get(1).getList());break;
+                    case GET_DIR:           svnGetDir(items.getList().get(1).getList());break;
+                    case GET_FILE:          svnGetFile(items.getList().get(1).getList());break;
+                    case GET_LATEST_REV:    svnGetLatestRev();break;
+                    case GET_LOCATIONS:     svnGetLocations(items.getList().get(1).getList());break;
+                    case GET_LOCK:          svnGetLock(items.getList().get(1).getList());break;
+                    case GET_LOCKS:         svnGetLocks(items.getList().get(1).getList());break;
+                    case LOCK_MANY:         svnLockMany(items.getList().get(1).getList());break;
+                    case LOG:               svnLog(items.getList().get(1).getList());break;
+                    case REPARENT:          svnReparent(items.getList().get(1).getList());break;
+                    case STAT:              svnStat(items.getList().get(1).getList());break;
+                    case STATUS:            svnStatus(items.getList().get(1).getList());break;
+                    case UNLOCK_MANY:       svnUnlockMany(items.getList().get(1).getList());break;
+                    case UPDATE:            svnUpdate(items.getList().get(1).getList());break;
                     default:                System.err.println("unkown key " + items.getValue().get(0).getWord());break;
                 }
                 items = this.streams.readItemList();
@@ -293,7 +293,7 @@ public class SVNServerSession
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-
+        getRepository().close();
         System.err.println("close session");
     }
 
@@ -521,7 +521,7 @@ public class SVNServerSession
         this.streams.writeItemList(
                 SVNServerSession.NO_AUTHORIZATION_NEEDED,
                 new ListElement(Word.STATUS_SUCCESS,
-                                new ListElement(this.getRepository().getLatestRevision())));
+                                new ListElement(getRepository().getLatestRevision())));
     }
 
     /**
@@ -680,17 +680,17 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
     protected void svnGetFile(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
         final boolean wantsProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE ? true : false;
         final boolean wantsContent = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE ? true : false;
 
-        final DirEntry dirEntry = this.getRepository().stat(revision, path, wantsProps);
+        final DirEntry dirEntry = getRepository().stat(revision, path, wantsProps);
 
         final ListElement props = new ListElement();
         if (wantsProps)  {
             props.add(new ListElement(PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
-                                      this.getRepository().getUUID().toString()),
+                                      getRepository().getUUID().toString()),
                       new ListElement(PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
                                       String.valueOf(dirEntry.getRevision())),
                       new ListElement(PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
@@ -715,7 +715,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
                                         props)));
 
         if (wantsContent)  {
-            final InputStream in = this.getRepository().getFile(revision, path);
+            final InputStream in = getRepository().getFile(revision, path);
             final byte[] buffer = new byte[4096];
             int length = in.read(buffer);
             while (length >= 0)  {
@@ -802,18 +802,18 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
     protected void svnGetDir(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
         final boolean wantProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE;
         final boolean wantContents = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE;
 
-        final DirEntry dirEntry = this.getRepository().stat(revision, path, wantProps);
+        final DirEntry dirEntry = getRepository().stat(revision, path, wantProps);
 
         // evaluate properties
         final ListElement propList = new ListElement();
         if (wantProps)  {
             propList.add(new ListElement(PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
-                                         this.getRepository().getUUID().toString()),
+                                         getRepository().getUUID().toString()),
                          new ListElement(PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
                                          String.valueOf(dirEntry.getRevision())),
                          new ListElement(PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
@@ -850,7 +850,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
                     }
                 }
             }
-            final DirEntryList dirEntryList = this.getRepository().getDir(revision,
+            final DirEntryList dirEntryList = getRepository().getDir(revision,
                                                                      path,
                                                                      size,
                                                                      hasProps,
@@ -904,7 +904,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
             throws UnsupportedEncodingException, IOException
     {
         // get path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
         // get revision
         final List<AbstractElement<?>> revParams = _parameters.get(1).getList();
         final Long revision;
@@ -914,7 +914,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
             revision = revParams.get(0).getNumber();
         }
 
-        final DirEntry entry = this.getRepository().stat(revision, path, false);
+        final DirEntry entry = getRepository().stat(revision, path, false);
 
         this.streams.writeItemList(
                 SVNServerSession.NO_AUTHORIZATION_NEEDED,
@@ -954,10 +954,10 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
     protected void svnStat(final List<AbstractElement<?>> _parameters)
            throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
 
-        final DirEntry entry = this.getRepository().stat(revision, path, false);
+        final DirEntry entry = getRepository().stat(revision, path, false);
 
         if (entry != null)  {
             this.streams.writeItemList(
@@ -1020,7 +1020,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
         final long revision = (revisionParams.isEmpty()) ? -1 : revisionParams.get(0).getNumber();
         // update path
-        final String path = this.buildPath(_parameters.get(1).getString());
+        final String path = buildPath(_parameters.get(1).getString());
         // recurse?
         final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
         // depth and send copy from parameters
@@ -1046,7 +1046,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
 
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
-        final EditorCommandSet deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
+        final EditorCommandSet deltaEditor = getRepository().getStatus(revision, path, depth, report);
 
         // editor mode
         deltaEditor.write(this.streams);
@@ -1094,7 +1094,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             throws UnsupportedEncodingException, IOException
     {
         // status path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
         // recurse?
         final boolean recurse = (_parameters.get(1).getWord() == Word.BOOLEAN_TRUE);
         // revision number
@@ -1120,7 +1120,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
 
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
-        final EditorCommandSet deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
+        final EditorCommandSet deltaEditor = getRepository().getStatus(revision, path, depth, report);
 
         // editor mode
         deltaEditor.write(this.streams);
@@ -1211,7 +1211,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         final String[] paths = new String[pathParameters.size()];
         int idx = 0;
         for (final AbstractElement<?> pathParameter : pathParameters)  {
-            paths[idx] = this.buildPath(pathParameter.getString());
+            paths[idx] = buildPath(pathParameter.getString());
             idx++;
         }
 
@@ -1219,7 +1219,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         final long endRevision = _parameters.get(2).getList().get(0).getNumber();
         final boolean inclChangedPaths = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
 
-        final LogEntryList logEntryList = this.getRepository().getLog(startRevision,
+        final LogEntryList logEntryList = getRepository().getLog(startRevision,
                                                                  endRevision,
                                                                  inclChangedPaths,
                                                                  paths);
@@ -1289,7 +1289,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             throws UnsupportedEncodingException, IOException
     {
         // location path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
         // peg revision number
         final long pegRevision = _parameters.get(1).getNumber();
         // interesting revisions
@@ -1357,7 +1357,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
 
         LockDescriptionList locks  = null;
         try  {
-            locks = this.getRepository().lock(comment, stealLock, paths);
+            locks = getRepository().lock(comment, stealLock, paths);
         } catch (final ServerException ex)  {
             this.streams.writeItemList(new ListElement(Word.STATUS_FAILURE,
                     new ListElement(new ListElement(/*ex.errorCode.code*/160035,"","", 0))));
@@ -1443,7 +1443,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
                       tokenList.isEmpty() ? null : tokenList.get(0).getString());
         }
 
-        final LockDescriptionList locks = this.getRepository().unlock(breakLock, paths);
+        final LockDescriptionList locks = getRepository().unlock(breakLock, paths);
 
         final List<ListElement> ret = new ArrayList<ListElement>();
         ret.add(SVNServerSession.NO_AUTHORIZATION_NEEDED);
@@ -1498,9 +1498,9 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     protected void svnGetLock(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
 
-        final LockDescription lockDesc = this.getRepository().getFileLock(path);
+        final LockDescription lockDesc = getRepository().getFileLock(path);
 
         final ListElement lock = new ListElement();
         if (lockDesc != null)  {
@@ -1549,9 +1549,9 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     protected void svnGetLocks(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = buildPath(_parameters.get(0).getString());
 
-        final LockDescriptionList lockDescList = this.getRepository().getLocks(path);
+        final LockDescriptionList lockDescList = getRepository().getLocks(path);
 
         final ListElement locks = new ListElement();
         if (lockDescList != null)  {
@@ -1623,8 +1623,8 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     {
         final URI pathURI = new URI(_path);
         final String completePath = pathURI.getPath();
-        final int repPathLength = this.getRepository().getRepositoryPath().length();
-        if (!this.getRepository().getRepositoryPath().toString().equals(completePath.substring(0, repPathLength)))  {
+        final int repPathLength = getRepository().getRepositoryPath().length();
+        if (!getRepository().getRepositoryPath().toString().equals(completePath.substring(0, repPathLength)))  {
             throw new Error("unkown URI " + pathURI);
         }
         return completePath.substring(repPathLength);

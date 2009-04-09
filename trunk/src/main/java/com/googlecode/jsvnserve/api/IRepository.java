@@ -72,6 +72,12 @@ public interface IRepository
     public long getLatestRevision();
 
     /**
+     * Method is called from the session, just before closing the session
+     * itself. It can be used to implement closing and cleaning routines.
+     */
+    public void close();
+
+    /**
      * Commit changes to the repository. The path root of the commit is current
      * repository location (see {@link #getLocationPath}).
      *
