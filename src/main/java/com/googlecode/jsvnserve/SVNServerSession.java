@@ -246,40 +246,52 @@ public class SVNServerSession
                 this.streams.writeItemList(NO_AUTHORIZATION_NEEDED);
             }
 
-            this.repository = this.repositoryFactory.createRepository(this.user,
-                    "".equals(hostUri.getPath()) ? "/" : hostUri.getPath());
+            // get repository
+            String errorMsg = null;
+            try  {
+                this.repository = this.repositoryFactory.createRepository(this.user,
+                        "".equals(hostUri.getPath()) ? "/" : hostUri.getPath());
+            } catch (final ServerException ex)  {
+                errorMsg = ex.getMessage();
+            }
 
-            URI rootURI = new URI(hostUri.getScheme(),
-                    null, hostUri.getHost(), hostUri.getPort(),
-                    this.getRepository().getRepositoryPath().toString(), null, null);
+            // if no repository exists.... => return error message
+            if (errorMsg != null)  {
+                this.streams.writeFailureStatus(errorMsg);
+            } else  {
 
-            this.streams.writeItemList(
-                    new ListElement(Word.STATUS_SUCCESS,
-                            new ListElement(this.getRepository().getUUID().toString(),
-                                            rootURI.toASCIIString(),
-                                            new ListElement(Word.MERGEINFO))));
+                URI rootURI = new URI(hostUri.getScheme(),
+                        null, hostUri.getHost(), hostUri.getPort(),
+                        this.getRepository().getRepositoryPath().toString(), null, null);
 
-            ListElement items = this.streams.readItemList();
-            while (items != null)  {
-                switch (items.getValue().get(0).getWord())  {
-                    case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
-                    case COMMIT:            this.svnCommit(items.getList().get(1).getList());break;
-                    case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
-                    case GET_FILE:          this.svnGetFile(items.getList().get(1).getList());break;
-                    case GET_LATEST_REV:    this.svnGetLatestRev();break;
-                    case GET_LOCATIONS:     this.svnGetLocations(items.getList().get(1).getList());break;
-                    case GET_LOCK:          this.svnGetLock(items.getList().get(1).getList());break;
-                    case GET_LOCKS:         this.svnGetLocks(items.getList().get(1).getList());break;
-                    case LOCK_MANY:         this.svnLockMany(items.getList().get(1).getList());break;
-                    case LOG:               this.svnLog(items.getList().get(1).getList());break;
-                    case REPARENT:          this.svnReparent(items.getList().get(1).getList());break;
-                    case STAT:              this.svnStat(items.getList().get(1).getList());break;
-                    case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
-                    case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
-                    case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
-                    default:                System.err.println("unkown key " + items.getValue().get(0).getWord());break;
+                this.streams.writeItemList(
+                        new ListElement(Word.STATUS_SUCCESS,
+                                new ListElement(this.getRepository().getUUID().toString(),
+                                                rootURI.toASCIIString(),
+                                                new ListElement(Word.MERGEINFO))));
+
+                ListElement items = this.streams.readItemList();
+                while (items != null)  {
+                    switch (items.getValue().get(0).getWord())  {
+                        case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
+                        case COMMIT:            this.svnCommit(items.getList().get(1).getList());break;
+                        case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
+                        case GET_FILE:          this.svnGetFile(items.getList().get(1).getList());break;
+                        case GET_LATEST_REV:    this.svnGetLatestRev();break;
+                        case GET_LOCATIONS:     this.svnGetLocations(items.getList().get(1).getList());break;
+                        case GET_LOCK:          this.svnGetLock(items.getList().get(1).getList());break;
+                        case GET_LOCKS:         this.svnGetLocks(items.getList().get(1).getList());break;
+                        case LOCK_MANY:         this.svnLockMany(items.getList().get(1).getList());break;
+                        case LOG:               this.svnLog(items.getList().get(1).getList());break;
+                        case REPARENT:          this.svnReparent(items.getList().get(1).getList());break;
+                        case STAT:              this.svnStat(items.getList().get(1).getList());break;
+                        case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
+                        case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
+                        case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
+                        default:                System.err.println("unkown key " + items.getValue().get(0).getWord());break;
+                    }
+                    items = this.streams.readItemList();
                 }
-                items = this.streams.readItemList();
             }
         } catch (final EOFException e)  {
             // is thrown from the SaslInputStream
@@ -292,9 +304,11 @@ public class SVNServerSession
         } catch (final URISyntaxException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
+        } finally  {
+            if (this.repository != null)  {
+                this.repository.close();
+            }
         }
-        this.getRepository().close();
-        System.err.println("close session");
     }
 
     /**
