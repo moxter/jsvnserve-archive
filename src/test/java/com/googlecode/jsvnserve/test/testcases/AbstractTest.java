@@ -20,16 +20,26 @@
 
 package com.googlecode.jsvnserve.test.testcases;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Parameters;
-import org.tmatesoft.svn.core.SVNException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  *
@@ -73,22 +83,25 @@ public abstract class AbstractTest
     /**
      * Initialize the working copy path. First all parent directories of the
      * working copy path are created if they are not exists. Then all sub
-     * directories are deleted if a working path already exists.
+     * directories are deleted if a working path already exists. At last a
+     * first checkout of the new initialized repository is done.
      *
      * @throws IOException
      * @throws InterruptedException
-     * @throws SVNException
+     * @throws ExecuteException
      * @see #wcPath
      */
-    @BeforeTest
+    @BeforeTest(dependsOnMethods = {"initRepositoryURL", "initUser"},
+                dependsOnGroups = "init.repository")
     public void initWC()
-            throws IOException, InterruptedException, SVNException
+            throws IOException, InterruptedException, ExecuteException
     {
         final String testPath = System.getProperty(PROPERTY_TEST_PATH);
         this.wcPath = new File(testPath);
         this.wcPath.mkdirs();
         Runtime.getRuntime().exec(new String[]{"rm", "-r", this.wcPath.toString()}).waitFor();
         this.wcPath.mkdirs();
+        this.execute(true, "co", this.repository, this.wcPath.toString());
     }
 
     /**
@@ -185,4 +198,106 @@ System.err.println("Execute " + cmd);
     {
         return this.repository;
     }
+
+    /**
+     *
+     * @return set with all current existing directory entries
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException             if SVN command &quot;ls&quot;
+     *                                      failed
+     * @throws ParserConfigurationException if XML parser could not be
+     *                                      initialized
+     * @throws SAXException                 if XML with the directory entries
+     *                                      could not be parsed
+     */
+    public Map<String,DirEntry> readDir() throws InterruptedException, IOException,
+            ExecuteException, ParserConfigurationException, SAXException
+    {
+        final String xml = this.execute(true,
+                                        "--revision", "HEAD",
+                                        "--depth", "infinity",
+                                        "--xml",
+                                        "ls");
+
+        final Map<String,DirEntry> ret = new HashMap<String,DirEntry>();
+
+        final DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+        final DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+        final Document doc = docBuilder.parse(new ByteArrayInputStream(xml.getBytes()));
+
+        Node node = doc.getDocumentElement().getFirstChild();
+        while (node != null)  {
+            if (node.getNodeType() == Node.ELEMENT_NODE)  {
+                final NodeList list = node.getChildNodes();
+                for (int idx = 0; idx < list.getLength(); idx++)  {
+                    final Node subNode = list.item(idx);
+                    if (subNode.getNodeType() == Node.ELEMENT_NODE)  {
+                        final Element entry = (Element) subNode;
+                        final String name = entry.getElementsByTagName("name").item(0).getFirstChild().getNodeValue();
+                        final DirKind kind = DirKind.valueOf(entry.getAttribute("kind").toUpperCase());
+                        ret.put(name, new DirEntry(name, kind));
+                    }
+                }
+            }
+            node = node.getNextSibling();
+        }
+        return ret;
+    }
+
+    /**
+     * Class to hold one directory entry.
+     */
+    protected class DirEntry
+    {
+        /**
+         * Name of the directory entry.
+         */
+        public final String name;
+
+        /**
+         * Kind of the directory entry.
+         */
+        public final DirKind kind;
+
+        /**
+         * Default constructor.
+         *
+         * @param _name
+         * @param _kind
+         */
+        private DirEntry(final String _name,
+                         final DirKind _kind)
+        {
+            this.name = _name;
+            this.kind = _kind;
+        }
+
+        /**
+         * Returns string representation of the directory entry. This includes
+         * the name and kind of directory entry.
+         *
+         * @return string representation
+         * @see #name
+         * @see #kind
+         */
+        @Override
+        public String toString()
+        {
+            return "[name = " + this.name + ", kind = " + this.kind + "]";
+        }
+    }
+
+    /**
+     * Enumeration for directory kinds.
+     */
+    protected enum DirKind
+    {
+        /** Directory. */
+        DIR,
+
+        /** File. */
+        FILE;
+    }
 }
+
