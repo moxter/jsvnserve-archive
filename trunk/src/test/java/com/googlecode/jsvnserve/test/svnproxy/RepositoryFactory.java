@@ -126,15 +126,25 @@ public class RepositoryFactory
         FSRepositoryFactory.setup();
     }
 
-    public IRepository createRepository(final String _user, final String _path)
+    /**
+     * @param _user     name of authenticated user
+     * @param _path     path of the repository
+     * @throws ServerException if the repository could not initialized or the
+     *                         SVN path does not start with '/proxy'
+     */
+    public IRepository createRepository(final String _user,
+                                        final String _path)
+            throws ServerException
     {
-        try {
-            return new Repository(_user, "/proxy", _path.substring("/proxy".length()));
-        } catch (final SVNException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+        if ("/proxy".equals(_path) || _path.startsWith("/proxy/"))  {
+            try  {
+                return new Repository(_user, "/proxy", _path.substring("/proxy".length()));
+            } catch (final SVNException ex)  {
+                throw new ServerException("initalize of the repository failed", ex);
+            }
+        } else  {
+            throw new ServerException("unknown SVN path '" + _path + "'");
         }
-        return null;
     }
 
     public class Repository

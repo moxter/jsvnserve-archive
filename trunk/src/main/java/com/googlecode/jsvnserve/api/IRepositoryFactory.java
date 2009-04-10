@@ -55,10 +55,14 @@ public interface IRepositoryFactory
      *                  repository
      * @param _path     path for which the repository instance must be created
      *                  (including repository path and root path)
-     * @return repository instance
+     * @return repository instance (must be always not <i>null</i>!)
      * @see IRepository#getRepositoryPath()
      * @see IRepository#getLocationPath()
+     * @throws ServerException if e.g. <code>_user</_code> does not have access
+     *                         to <code>_path</code> or <code>_path</code> does
+     *                         not exists
      */
     public IRepository createRepository(final String _user,
-                                        final String _path);
+                                        final String _path)
+            throws ServerException;
 }
