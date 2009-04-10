@@ -44,7 +44,7 @@ public class InitSVNProxyServer
 
     private SVNServer svnServer;
 
-    @BeforeTest
+    @BeforeTest(groups = "init.repository")
     @Parameters({"port"})
     public void createRepository(final int _port)
             throws IOException, InterruptedException, SVNException
