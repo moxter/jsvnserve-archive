@@ -109,7 +109,7 @@ public class SVNSessionStreams
                            final Object... _objects)
     {
         if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
-            SVNSessionStreams.LOGGER.trace("REQ>: " + _text, _objects);
+            SVNSessionStreams.LOGGER.trace("RES<: " + _text, _objects);
         }
     }
 
@@ -124,7 +124,7 @@ public class SVNSessionStreams
                           final Object... _objects)
     {
         if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
-            SVNSessionStreams.LOGGER.trace("RES<: " + _text, _objects);
+            SVNSessionStreams.LOGGER.trace("REQ>: " + _text, _objects);
         }
     }
 
@@ -132,7 +132,7 @@ public class SVNSessionStreams
     public void write(final String _text)
             throws UnsupportedEncodingException, IOException
     {
-        SVNSessionStreams.LOGGER.trace("REQ>: {}", _text);
+        SVNSessionStreams.LOGGER.trace("RES<: {}", _text);
         this.out.write(_text.getBytes("UTF8"));
         this.out.flush();
     }
@@ -144,7 +144,7 @@ public class SVNSessionStreams
             if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
                 final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
                 list.write(byteArrayOut);
-                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
+                SVNSessionStreams.LOGGER.trace("RES<: {}", byteArrayOut.toString());
             }
             list.write(this.out);
         }
@@ -158,11 +158,25 @@ public class SVNSessionStreams
             if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
                 final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
                 list.write(byteArrayOut);
-                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
+                SVNSessionStreams.LOGGER.trace("RES<: {}", byteArrayOut.toString());
             }
             list.write(this.out);
         }
         this.out.flush();
+    }
+
+    /**
+     * Writes an empty success status.
+     *
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    public void writeSuccessStatus()
+            throws UnsupportedEncodingException, IOException
+    {
+        this.writeItemList(
+                    new ListElement(Word.STATUS_SUCCESS,
+                                    new ListElement(new ListElement())));
     }
 
     /**
@@ -255,7 +269,7 @@ public class SVNSessionStreams
             if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
                 final ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
                 list.write(byteArrayOut);
-                SVNSessionStreams.LOGGER.trace("RES<: {}", byteArrayOut.toString());
+                SVNSessionStreams.LOGGER.trace("REQ>: {}", byteArrayOut.toString());
             }
         }
         return (ch == -1) ? null : list;
