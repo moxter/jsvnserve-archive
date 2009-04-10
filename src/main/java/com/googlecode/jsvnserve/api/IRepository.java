@@ -227,7 +227,8 @@ public interface IRepository
     public EditorCommandSet getStatus(final Long _revision,
                                       final String _path,
                                       final Depth _depth,
-                                      final ReportList _report);
+                                      final ReportList _report)
+            throws ServerException;
 
     /**
      * <p>Returns the path locations in revision history. The location of a

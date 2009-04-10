@@ -197,6 +197,14 @@ public class RepositoryFactory
             return this.rootPath;
         }
 
+        /**
+         * @see com.googlecode.jsvnserve.api.IRepository#close()
+         */
+        public void close()
+        {
+        }
+
+
         public CommitInfo commit(final String _logMessage,
                                  final Map<String,String> _locks,
                                  final boolean _keepLocks,
@@ -600,6 +608,7 @@ System.out.println("temp="+temp);
                                   final String _path,
                                   final Depth _depth,
                                   final ReportList _report)
+                throws ServerException
         {
             final SVNEditor editor = new SVNEditor();
 
@@ -639,8 +648,7 @@ try {
 
     }, editor);
 } catch (final SVNException e) {
-    // TODO Auto-generated catch block
-    e.printStackTrace();
+    throw new ServerException(e.getMessage(), e);
 }
 
 System.out.println("editor="+editor.list);
@@ -653,14 +661,6 @@ try  {
     e.printStackTrace();
 }
             return deltaEditor;
-        }
-
-        /**
-         * @see com.googlecode.jsvnserve.api.IRepository#close()
-         */
-        public void close() {
-          // TODO Auto-generated method stub
-
         }
     }
 
