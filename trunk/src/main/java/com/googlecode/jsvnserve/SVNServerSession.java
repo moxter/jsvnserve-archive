@@ -300,7 +300,10 @@ public class SVNServerSession
                         case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
                         case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
                         case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
-                        default:                System.err.println("unkown key " + items.getList().get(0).getWord());break;
+                        default:
+                            this.streams.writeFailureStatus("unknown SVN command '"
+                                    + items.getList().get(0).getString() + "'");
+                            break;
                     }
                     items = this.streams.readItemList();
                 }
