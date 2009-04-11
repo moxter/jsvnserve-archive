@@ -176,6 +176,7 @@ public class SimpleTests
     {
         final File file = new File(this.getWCPath(), "temp1/file1.txt");
         final OutputStream out = new FileOutputStream(file);
+        final String text = "This is the file '" + file.getName() + "'.\n";
         out.write(("This is the file '" + file.getName() + "'.\n").getBytes());
         out.close();
         this.execute(false, "add", "temp1/file1.txt");
@@ -188,5 +189,6 @@ public class SimpleTests
         Assert.assertTrue(entries.containsKey("temp1/sub2"));
         Assert.assertTrue(entries.containsKey("temp2"));
         Assert.assertEquals(entries.get("temp1/file1.txt").kind, DirKind.FILE);
+        Assert.assertEquals(entries.get("temp1/file1.txt").size, text.length());
     }
 }
