@@ -236,7 +236,15 @@ System.err.println("Execute " + cmd);
                         final Element entry = (Element) subNode;
                         final String name = entry.getElementsByTagName("name").item(0).getFirstChild().getNodeValue();
                         final DirKind kind = DirKind.valueOf(entry.getAttribute("kind").toUpperCase());
-                        ret.put(name, new DirEntry(name, kind));
+                        final int size;
+                        if (kind == DirKind.FILE)  {
+                            final String sizeStr = entry.getElementsByTagName("size")
+                                                        .item(0).getFirstChild().getNodeValue();
+                            size = Integer.parseInt(sizeStr);
+                        } else  {
+                            size = 0;
+                        }
+                        ret.put(name, new DirEntry(name, kind, size));
                     }
                 }
             }
@@ -261,16 +269,25 @@ System.err.println("Execute " + cmd);
         public final DirKind kind;
 
         /**
+         * Size for files.
+         */
+        public final int size;
+
+        /**
          * Default constructor.
          *
-         * @param _name
-         * @param _kind
+         * @param _name     name of the directory entry
+         * @param _kind     kind of the directory entry
+         * @param _size     size if <code>_kind</code> of directory entry is
+         *                  {@link DirKind#FILE}
          */
         private DirEntry(final String _name,
-                         final DirKind _kind)
+                         final DirKind _kind,
+                         final int _size)
         {
             this.name = _name;
             this.kind = _kind;
+            this.size = _size;
         }
 
         /**
