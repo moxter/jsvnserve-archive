@@ -22,7 +22,6 @@ package com.googlecode.jsvnserve.element;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 
 /**
  *
@@ -49,9 +48,9 @@ public class NumberElement
 
     @Override
     public void write(final OutputStream _out)
-    throws UnsupportedEncodingException, IOException
+            throws IOException
     {
-        _out.write(String.valueOf(this.getValue()).getBytes("UTF8"));
+        _out.write(String.valueOf(this.getValue()).getBytes());
         _out.write(' ');
     }
 

@@ -137,15 +137,27 @@ public class SVNServerSession
      * &quot;<code>( success ( ( ) 0: ) )</code>&quot; which must be returned
      * if no authorization is needed.
      */
-    private static final ListElement NO_AUTHORIZATION_NEEDED
-            = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement(), ""));
+    private static final ListElement NO_AUTHORIZATION_NEEDED;
+    static  {
+        try  {
+            NO_AUTHORIZATION_NEEDED = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement(), ""));
+        } catch (final UnsupportedEncodingException ex)  {
+            throw new Error("definition of list element 'NO_AUTHORIZATION_NEEDED' failed", ex);
+        }
+    }
 
     /**
      * Used for empty SVN response for
      * &quot;<code>( success ( ( ) ) )</code>&quot;.
      */
-    public static final ListElement EMPTY_SUCCESS
-            = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement()));
+    public static final ListElement EMPTY_SUCCESS;
+    static  {
+        try  {
+            EMPTY_SUCCESS = new ListElement(Word.STATUS_SUCCESS, new ListElement(new ListElement()));
+        } catch (final UnsupportedEncodingException ex)  {
+            throw new Error("definition of list element 'STATUS_SUCCESS' failed", ex);
+        }
+    }
 
     /**
      * Holds both streams, the input and output stream.
@@ -234,7 +246,7 @@ public class SVNServerSession
 
             final ListElement ret = this.streams.readItemList();
 
-            final String hostName = ret.getValue().get(2).getValue().toString();
+            final String hostName = ret.getList().get(2).getString();
 
             final URI hostUri = new URI(hostName);
 
@@ -272,7 +284,7 @@ public class SVNServerSession
 
                 ListElement items = this.streams.readItemList();
                 while (items != null)  {
-                    switch (items.getValue().get(0).getWord())  {
+                    switch (items.getList().get(0).getWord())  {
                         case CHECK_PATH:        this.svnCheckPath(items.getList().get(1).getList());break;
                         case COMMIT:            this.svnCommit(items.getList().get(1).getList());break;
                         case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
@@ -288,7 +300,7 @@ public class SVNServerSession
                         case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
                         case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
                         case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
-                        default:                System.err.println("unkown key " + items.getValue().get(0).getWord());break;
+                        default:                System.err.println("unkown key " + items.getList().get(0).getWord());break;
                     }
                     items = this.streams.readItemList();
                 }
@@ -651,16 +663,26 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
                     SVNServerSession.NO_AUTHORIZATION_NEEDED,
                     SVNServerSession.EMPTY_SUCCESS);
 
-            final EditorCommandSet editor = new EditorCommandSet(-1);
-            editor.read(this.streams);
-
-            CommitInfo commitInfo = null;
             ServerException serverException = null;
+
+            final EditorCommandSet editor = new EditorCommandSet(-1);
             try  {
-                commitInfo = this.repository.commit(logMsg, locks, keepLock, revProps, editor);
+                editor.read(this.streams);
             } catch (final ServerException ex)  {
                 serverException = ex;
             }
+
+            CommitInfo commitInfo = null;
+            if (serverException == null)  {
+                try  {
+                    commitInfo = this.repository.commit(logMsg, locks, keepLock, revProps, editor);
+                } catch (final ServerException ex)  {
+                    serverException = ex;
+                }
+            }
+
+            // close all opened handler from editor command set
+            editor.close();
 
             // commit failed
             if (serverException != null)  {

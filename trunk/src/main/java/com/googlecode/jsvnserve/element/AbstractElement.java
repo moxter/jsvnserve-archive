@@ -22,7 +22,6 @@ package com.googlecode.jsvnserve.element;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 /**
@@ -40,13 +39,13 @@ public abstract class AbstractElement<X>
     }
 
     public abstract void write(final OutputStream _out)
-    throws UnsupportedEncodingException, IOException;
+            throws IOException;
 
     /**
      *
      * @return value of {@link #value}
      */
-    public X getValue()
+    protected X getValue()
     {
         return this.value;
     }
@@ -74,12 +73,23 @@ public abstract class AbstractElement<X>
     }
 
     /**
-     * Returns the {@link #value} as word. Because the value is in most times
-     * not a word, a <code>null</code> is returned.
+     * Returns the {@link #value} as string. Because the value is in most times
+     * not a string, a <code>null</code> is returned.
      *
      * @return always <code>null</code>
      */
     public String getString()
+    {
+        return null;
+    }
+
+    /**
+     * Returns the {@link #value} as byte array. Because the value is in most
+     * times not a byte array, a <code>null</code> is returned.
+     *
+     * @return always <code>null</code>
+     */
+    public byte[] getByteArray()
     {
         return null;
     }

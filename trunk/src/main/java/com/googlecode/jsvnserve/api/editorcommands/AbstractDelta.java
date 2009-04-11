@@ -103,6 +103,13 @@ public abstract class AbstractDelta
         this.committedDate = _committedDate;
     }
 
+    /**
+     * Method is used to close an opened handler.
+     */
+    protected void close()
+    {
+    }
+
     protected abstract void writeOpen(final SVNSessionStreams _streams,
                                       final String _parentToken)
             throws UnsupportedEncodingException, IOException;
