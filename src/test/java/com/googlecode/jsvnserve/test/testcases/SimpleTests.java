@@ -52,7 +52,7 @@ public class SimpleTests
      * @throws InterruptedException
      *
      */
-    @Test(expectedExceptions = ExecuteException.class)
+    @Test(expectedExceptions = ExecuteException.class, timeOut = 10000)
     public void testNotExistingRepositoryPath()
             throws InterruptedException, IOException, ExecuteException
     {
@@ -66,7 +66,7 @@ public class SimpleTests
      * @throws IOException
      * @throws ExecuteException
      */
-    @Test(expectedExceptions = AssertionError.class)
+    @Test(expectedExceptions = AssertionError.class, timeOut = 10000)
     @Parameters({"svnUser", "svnPassword"})
     public void testFailedUserAutentication(final String _svnUser,
                                             final String _svnPassword)
@@ -93,7 +93,7 @@ public class SimpleTests
      * @throws ParserConfigurationException
      * @throws SAXException
      */
-    @Test
+    @Test(timeOut = 10000)
     public void createDirectory()
             throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
     {
@@ -116,7 +116,7 @@ public class SimpleTests
      * @throws ParserConfigurationException
      * @throws SAXException
      */
-    @Test(dependsOnMethods = "createDirectory")
+    @Test(dependsOnMethods = "createDirectory", timeOut = 10000)
     public void createSubDirectory()
             throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
     {
@@ -142,7 +142,7 @@ public class SimpleTests
      * @throws ParserConfigurationException
      * @throws SAXException
      */
-    @Test(dependsOnMethods = "createSubDirectory")
+    @Test(dependsOnMethods = "createSubDirectory", timeOut = 10000)
     public void createDirectoryAndSubDirectory()
             throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
     {
@@ -170,7 +170,7 @@ public class SimpleTests
      * @throws ParserConfigurationException
      * @throws SAXException
      */
-    @Test(dependsOnMethods = "createDirectoryAndSubDirectory")
+    @Test(dependsOnMethods = "createDirectoryAndSubDirectory", timeOut = 10000)
     public void createFile()
             throws IOException, InterruptedException, ExecuteException, ParserConfigurationException, SAXException
     {
@@ -190,5 +190,19 @@ public class SimpleTests
         Assert.assertTrue(entries.containsKey("temp2"));
         Assert.assertEquals(entries.get("temp1/file1.txt").kind, DirKind.FILE);
         Assert.assertEquals(entries.get("temp1/file1.txt").size, text.length());
+    }
+
+    /**
+     * Test if the revision properties for revision 0 could be listed.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     */
+    @Test(timeOut = 10000)
+    public void propListRev0()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        this.execute(true, "--verbose", "--revprop", "--revision", "0", "proplist", this.getRepositoryURL());
     }
 }
