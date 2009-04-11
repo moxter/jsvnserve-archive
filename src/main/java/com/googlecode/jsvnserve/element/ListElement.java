@@ -42,12 +42,14 @@ public class ListElement
     }
 
     public ListElement(final Object... _args)
+            throws UnsupportedEncodingException
     {
         super(new ArrayList<AbstractElement<?>>());
         this.add(_args);
     }
 
     public void add(final Object... _args)
+            throws UnsupportedEncodingException
     {
         for (final Object arg : _args)  {
             if (arg instanceof String)  {
@@ -62,6 +64,8 @@ public class ListElement
                 this.getValue().add((AbstractElement<?>) arg);
             } else if (arg instanceof Date)  {
                 this.getValue().add(new StringElement((Date) arg));
+            } else if (arg instanceof byte[])  {
+                this.getValue().add(new StringElement((byte[]) arg));
             } else  {
                 System.err.println("unknown class "+ arg.getClass());
             }
@@ -98,12 +102,10 @@ public class ListElement
                 ch = (char) _in.read();
             }
             if (ch == ':')  {
-                final long length = Long.parseLong(buf.toString());
-                buf.delete(0, buf.length());
-                for (int idx = 0; idx < length; idx++)  {
-                    buf.append((char) _in.read());
-                }
-                ret = new StringElement(buf);
+                final int length = Integer.parseInt(buf.toString());
+                final byte[] byteBuffer = new byte[length];
+                _in.read(byteBuffer, 0, length);
+                ret = new StringElement(byteBuffer);
                 ch = (char) _in.read();
             } else  {
                 ret = new NumberElement(buf);
@@ -123,13 +125,13 @@ public class ListElement
 
     @Override
     public void write(final OutputStream _out)
-            throws UnsupportedEncodingException, IOException
+            throws IOException
     {
-        _out.write("( ".getBytes("UTF8"));
+        _out.write("( ".getBytes());
         for (final AbstractElement<?> element : this.getValue())  {
             element.write(_out);
         }
-        _out.write(") ".getBytes("UTF8"));
+        _out.write(") ".getBytes());
     }
 
     /**

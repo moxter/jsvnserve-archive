@@ -65,6 +65,7 @@ import org.tmatesoft.svn.core.io.ISVNReporter;
 import org.tmatesoft.svn.core.io.ISVNReporterBaton;
 import org.tmatesoft.svn.core.io.SVNLocationEntry;
 import org.tmatesoft.svn.core.io.SVNRepository;
+import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
 import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 import org.tmatesoft.svn.core.wc.SVNClientManager;
 
@@ -87,9 +88,11 @@ import com.googlecode.jsvnserve.api.ReportList.DeletePath;
 import com.googlecode.jsvnserve.api.ReportList.SetPath;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDelta;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaDirectory;
+import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaFile;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCopy;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryOpen;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaFileCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaRootOpen;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
 
@@ -255,13 +258,23 @@ public class RepositoryFactory
                         editor.addDir(delta.getPath(), null, -1);
                     } else if (delta instanceof DeltaDirectoryOpen)  {
                         editor.openDir(delta.getPath(), -1);
+                    } else if (delta instanceof DeltaFileCreate)  {
+final AbstractDeltaFile fileDelta = (AbstractDeltaFile) delta;
+editor.addFile(delta.getPath(), null, -1);
+editor.applyTextDelta(delta.getPath(), null);
+SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
+String checksum = deltaGenerator.sendDelta(delta.getPath(), fileDelta.getInputStream(), editor, true);
+                    } else  {
+// TODO: check if not implemented classes are used
                     }
                 }
                 while (!stack.empty())  {
-                    if (stack.pop() instanceof AbstractDeltaDirectory)  {
+                    final AbstractDelta delta = stack.pop();
+                    if (delta instanceof AbstractDeltaDirectory)  {
                         editor.closeDir();
-                    } else  {
-                        // file close
+                    } else if (delta instanceof DeltaFileCreate)  {
+                        final AbstractDeltaFile fileDelta = (AbstractDeltaFile) delta;
+                        editor.closeFile(fileDelta.getPath(), fileDelta.getChecksum());
                     }
                 }
 

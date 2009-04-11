@@ -29,10 +29,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
+import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
@@ -58,7 +61,7 @@ public class EditorCommandSet
      *
      * @see #addDelta(AbstractDelta)
      */
-    private final Map<String,String> mapToken2Path = new HashMap<String,String>();
+    private final Map<String,AbstractDelta> mapToken2Delta = new HashMap<String,AbstractDelta>();
 
     /**
      * Current token index used to give each directory path a specific token
@@ -119,7 +122,7 @@ public class EditorCommandSet
     protected void addDelta(final AbstractDelta _delta)
     {
         this.deltas.put(_delta.getPath(), _delta);
-        this.mapToken2Path.put(_delta.getToken(), _delta.getPath());
+        this.mapToken2Delta.put(_delta.getToken(), _delta);
     }
 
     /**
@@ -193,9 +196,10 @@ public class EditorCommandSet
      *                              copied path could not parsed
      */
     public void read(final SVNSessionStreams _streams)
-            throws IOException, URISyntaxException
+            throws IOException, URISyntaxException, ServerException
     {
         boolean closed = false;
+        final Set<String> unknownCommands = new TreeSet<String>();
         while (!closed)  {
             ListElement list = _streams.readItemList();
             final Word key = list.getList().get(0).getWord();
@@ -225,12 +229,52 @@ public class EditorCommandSet
                                                          null, null, null));
                     break;
                 case CLOSE_DIR:
-                case CLOSE_FILE:
                     break;
                 case CLOSE_EDIT:
                     closed = true;
                     break;
+                case ADD_FILE:
+                    this.addDelta(new DeltaFileCreate(params.get(2).getString(),
+                                                      params.get(0).getString(),
+                                                      null, null, null));
+                    break;
+                case APPLY_TEXTDELTA:
+                    final String apToken = params.get(0).getString();
+                    final AbstractDeltaFile apDelta = (AbstractDeltaFile) this.mapToken2Delta.get(apToken);
+                    apDelta.applyTextDelta();
+                    break;
+                case TEXTDELTA_CHUNK:
+                    final String tcToken = params.get(0).getString();
+                    final byte[] tcBuffer = params.get(1).getByteArray();
+                    final AbstractDeltaFile tcDelta = (AbstractDeltaFile) this.mapToken2Delta.get(tcToken);
+                    tcDelta.textDeltaChunk(tcBuffer);
+                    break;
+                case TEXTDELTA_END:
+                    final String teToken = params.get(0).getString();
+                    final AbstractDeltaFile teDelta = (AbstractDeltaFile) this.mapToken2Delta.get(teToken);
+                    teDelta.textDeltaEnd();
+                    break;
+                case CLOSE_FILE:
+                    final String cfToken = params.get(0).getString();
+                    final String cfMD5 = params.get(1).getList().get(0).getString();
+                    final AbstractDeltaFile cfDelta = (AbstractDeltaFile) this.mapToken2Delta.get(cfToken);
+                    cfDelta.closeFile(cfMD5);
+                    break;
+                default:
+                    unknownCommands.add(key.value);
             }
+        }
+
+        if (!unknownCommands.isEmpty())  {
+// TODO: i18n
+throw new ServerException("Unknown command(s) " + unknownCommands);
+        }
+    }
+
+    public void close()
+    {
+        for (final AbstractDelta delta : this.getDeltas())  {
+            delta.close();
         }
     }
 

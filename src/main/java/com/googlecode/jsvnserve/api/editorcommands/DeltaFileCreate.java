@@ -41,8 +41,8 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * @author jSVNServe Team
  * @version $Id$
  */
-class DeltaFileCreate
-        extends AbstractDelta
+public class DeltaFileCreate
+        extends AbstractDeltaFile
 {
     DeltaFileCreate(final String _token,
                     final String _path,

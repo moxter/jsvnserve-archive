@@ -138,7 +138,7 @@ public class SVNSessionStreams
     }
 
     public void writeItemList(final ListElement... _lists)
-            throws UnsupportedEncodingException, IOException
+            throws IOException
     {
         for (final ListElement list : _lists)  {
             if (SVNSessionStreams.LOGGER.isTraceEnabled())  {
@@ -152,7 +152,7 @@ public class SVNSessionStreams
     }
 
     public void writeItemList(final List<ListElement> _lists)
-            throws UnsupportedEncodingException, IOException
+            throws IOException
     {
         for (final ListElement list : _lists)  {
             if (SVNSessionStreams.LOGGER.isTraceEnabled())  {

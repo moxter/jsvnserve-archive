@@ -34,7 +34,7 @@ import java.util.SimpleTimeZone;
  * @version $Id$
  */
 public class StringElement
-        extends AbstractElement<String>
+        extends AbstractElement<byte[]>
 {
     /**
      * Date time format from SVN used to format date instance to strings.<br/>
@@ -52,11 +52,27 @@ public class StringElement
     /**
      * Default string for the null date time.
      */
-    public final static StringElement NULL_DATETIME = new StringElement("1970-01-01T00:00:00.000000Z");
+    public final static StringElement NULL_DATETIME = new StringElement("1970-01-01T00:00:00.000000Z".getBytes());
 
-    public StringElement(final CharSequence _value)
+    /**
+     *
+     * @param _buffer   buffer for this string element
+     */
+    public StringElement(final byte[] _buffer)
     {
-        super(_value.toString());
+        super(_buffer);
+    }
+
+    /**
+     *
+     * @param _value    new value which will be UTF8 encoded
+     * @throws UnsupportedEncodingException if the character sequence could not
+     *                                      be encoded to byte buffer
+     */
+    public StringElement(final CharSequence _value)
+            throws UnsupportedEncodingException
+    {
+        super(_value.toString().getBytes("UTF8"));
     }
 
     /**
@@ -66,17 +82,25 @@ public class StringElement
      */
     public StringElement(final Date _value)
     {
-        super(DATETIMEFORMAT.format(_value));
+        super(DATETIMEFORMAT.format(_value).getBytes());
     }
 
+    /**
+     * Write this string element to output stream <code>_out</code>. First the
+     * length of the byte buffer is written, then a colon and at last the byte
+     * buffer itself.
+     *
+     * @param _out      output stream
+     * @throws IOException if the byte buffer could not be written
+     */
     @Override
     public void write(final OutputStream _out)
-            throws UnsupportedEncodingException, IOException
+            throws IOException
     {
-        _out.write(String.valueOf(this.getValue().length()).getBytes("UTF8"));
+        _out.write(String.valueOf(this.getValue().length).getBytes());
         _out.write(':');
-        if (!"".equals(this.getValue()))  {
-            _out.write(this.getValue().getBytes("UTF8"));
+        if (this.getValue().length > 0)  {
+            _out.write(this.getValue());
         }
         _out.write(' ');
     }
@@ -90,12 +114,28 @@ public class StringElement
     @Override
     public String getString()
     {
+        return new String(this.getValue());
+    }
+
+    /**
+     * Returns the byte array value for which this SVN element is defined.
+     *
+     * @return byte array of current value
+     * @see #getValue()
+     */
+    @Override
+    public byte[] getByteArray()
+    {
         return this.getValue();
     }
 
+    /**
+     * Returns a 'string' representation of the byte buffer. As prefix,
+     * &quot;STRING&quot; is returned in front.
+     */
     @Override
     public String toString()
     {
-        return "STRING '" + this.getValue() + "'";
+        return "STRING '" + new String(this.getValue()) + "'";
     }
 }
