@@ -78,7 +78,6 @@ import com.googlecode.jsvnserve.api.IRepositoryFactory;
 import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
-import com.googlecode.jsvnserve.api.Properties;
 import com.googlecode.jsvnserve.api.ReportList;
 import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
@@ -95,6 +94,9 @@ import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryOpen;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaFileCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaRootOpen;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.properties.Properties;
+import com.googlecode.jsvnserve.api.properties.Revision0PropertyValues;
+import com.googlecode.jsvnserve.api.properties.RevisionPropertyValues;
 
 /**
  *
@@ -483,6 +485,40 @@ System.out.println("temp="+temp);
                 e.printStackTrace();
             }
             return 0;
+        }
+
+        @SuppressWarnings("unchecked")
+        public RevisionPropertyValues getRevisionProperties(final long _revision)
+                throws ServerException
+        {
+            final RevisionPropertyValues ret = new RevisionPropertyValues();
+            try {
+                final SVNProperties props = this.svnRepository.getRevisionProperties(_revision, null);
+                for (final Map.Entry<String,SVNPropertyValue> entry
+                        : ((Map<String,SVNPropertyValue>) props.asMap()).entrySet())  {
+                    ret.put(entry.getKey(), entry.getValue().getString());
+                }
+            } catch (final SVNException ex) {
+                throw new ServerException(ex.getMessage(), ex);
+            }
+            return ret;
+        }
+
+        @SuppressWarnings("unchecked")
+        public Revision0PropertyValues getRevision0Properties()
+                throws ServerException
+        {
+            final Revision0PropertyValues ret = new Revision0PropertyValues();
+            try {
+                final SVNProperties props = this.svnRepository.getRevisionProperties(0, null);
+                for (final Map.Entry<String,SVNPropertyValue> entry
+                        : ((Map<String,SVNPropertyValue>) props.asMap()).entrySet())  {
+                    ret.put(entry.getKey(), entry.getValue().getString());
+                }
+            } catch (final SVNException ex) {
+                throw new ServerException(ex.getMessage(), ex);
+            }
+            return ret;
         }
 
         public LockDescriptionList lock(final String _comment,

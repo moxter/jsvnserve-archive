@@ -51,15 +51,15 @@ import com.googlecode.jsvnserve.api.IRepositoryFactory;
 import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
-import com.googlecode.jsvnserve.api.Properties;
 import com.googlecode.jsvnserve.api.ReportList;
 import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.ChangedPath;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
-import com.googlecode.jsvnserve.api.Properties.PropertyKey;
 import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.properties.Properties;
+import com.googlecode.jsvnserve.api.properties.Properties.PropertyKey;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.StringElement;
@@ -295,6 +295,8 @@ public class SVNServerSession
                         case GET_LOCKS:         this.svnGetLocks(items.getList().get(1).getList());break;
                         case LOCK_MANY:         this.svnLockMany(items.getList().get(1).getList());break;
                         case LOG:               this.svnLog(items.getList().get(1).getList());break;
+                        case REV_PROP:          this.svnRevProp(items.getList().get(1).getList());break;
+                        case REV_PROPLIST:      this.svnRevPropList(items.getList().get(1).getList());break;
                         case REPARENT:          this.svnReparent(items.getList().get(1).getList());break;
                         case STAT:              this.svnStat(items.getList().get(1).getList());break;
                         case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
@@ -554,10 +556,143 @@ public class SVNServerSession
     }
 
     /**
+     * <p>Returns for given revision the related property values to the SVN
+     * client.</p>
+     *
+     * <p><b>SVN Call (from client)</b><br/>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( rev-proplist (</nobr></code></td></tr>
+     * <tr><td></td><td><code style="color:green">
+     *     rev:<a href="#number">number</a></code></td>
+     *     <td>searched revision number</td></tr>
+      * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>SVN Response (from server)</b><br/>
+     * In the case of no errors, the no authorization request
+     * {@link #NO_AUTHORIZATION_NEEDED} is returned first. Then the list of the
+     * revision properties for requested revision numbers are returned:
+     * <table>
+     * <tr><td><code style="color:green">( success
+     *         ( ( ?rev-props:<a href="#property">property</a> ... ) )</code></td>
+     *         <td></td></tr>
+     * </table>
+     * In a case of an error, a failure response is returned with
+     * {@link SVNSessionStreams#writeFailureStatus(String)} (without
+     * authorization).</p>
+     *
+     * @param _parameters   SVN revision property list parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @see IRepository#getRevisionProperties(long)
+     * @see IRepository#getRevision0Properties()
+     */
+    protected void svnRevPropList(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // revision number
+        final long revision = _parameters.get(0).getNumber();
+
+        // evaluate all revision properties
+        Properties props = null;
+        ServerException exception = null;
+        try {
+            if (revision == 0)  {
+                props = this.repository.getRevision0Properties();
+            } else  {
+                props = this.repository.getRevisionProperties(revision);
+            }
+        } catch (final ServerException ex) {
+            exception = ex;
+        }
+
+        if (exception != null)  {
+            this.streams.writeFailureStatus(exception.getMessage());
+        } else  {
+
+            final ListElement propList = new ListElement();
+            for (final Map.Entry<String,String> prop : props.entrySet())  {
+                propList.add(new ListElement(prop.getKey(), prop.getValue()));
+            }
+
+            this.streams.writeItemList(
+                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                    new ListElement(Word.STATUS_SUCCESS, new ListElement(propList)));
+        }
+    }
+
+    /**
+     * <p>Returns for given revision and property key the related values to the
+     * SVN client.</p>
+     *
+     * <p><b>SVN Call (from client)</b><br/>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( rev-prop (</nobr></code></td></tr>
+     * <tr><td rowspan="2"></td><td><code style="color:green">
+     *     rev:<a href="#number">number</a></code></td>
+     *     <td>searched revision number</td></tr>
+     * <tr><td><code style="color:green">
+     *     name:<a href="#string">string</a></code></td>
+     *     <td>key of the revision property</td></tr>
+      * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>SVN Response (from server)</b><br/>
+     * In the case of no errors, the no authorization request
+     * {@link #NO_AUTHORIZATION_NEEDED} is returned first. Then the list of the
+     * revision properties for requested revision numbers are returned:
+     * <table>
+     * <tr><td><code style="color:green">( success
+     *         ( ?( ?value:<a href="#string">string</a> ) )</code></td>
+     *         <td></td></tr>
+     * </table>
+     * In a case of an error, a failure response is returned with
+     * {@link SVNSessionStreams#writeFailureStatus(String)} (without
+     * authorization).</p>
+     *
+     * @param _parameters   SVN revision property parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @see IRepository#getRevisionProperties(long)
+     * @see IRepository#getRevision0Properties()
+     */
+    protected void svnRevProp(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // revision number
+        final long revision = _parameters.get(0).getNumber();
+        // property key name
+        final String propKey = _parameters.get(1).getString();
+
+        // evaluate all revision properties
+        Properties props = null;
+        ServerException exception = null;
+        try {
+            if (revision == 0)  {
+                props = this.repository.getRevision0Properties();
+            } else  {
+                props = this.repository.getRevisionProperties(revision);
+            }
+        } catch (final ServerException ex) {
+            exception = ex;
+        }
+
+        if (exception != null)  {
+            this.streams.writeFailureStatus(exception.getMessage());
+        } else  {
+            final String value = props.get(propKey);
+
+            this.streams.writeItemList(
+                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                    new ListElement(Word.STATUS_SUCCESS,
+                                    new ListElement(new ListElement(value != null ? value : ""))));
+        }
+    }
+
+    /**
      * Commit changes to the repository.
      *
      * <p><b>SVN Call (from client)</b><br/>
-     *
      * <table>
      * <tr><td><code style="color:green"><nobr>( commit (</nobr></code></td></tr>
      * <tr><td rowspan="4"></td><td><code style="color:green">

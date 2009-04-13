@@ -28,6 +28,9 @@ import java.util.UUID;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.properties.Properties;
+import com.googlecode.jsvnserve.api.properties.Revision0PropertyValues;
+import com.googlecode.jsvnserve.api.properties.RevisionPropertyValues;
 
 /**
  *
@@ -70,6 +73,30 @@ public interface IRepository
      * @return current latest revision
      */
     public long getLatestRevision();
+
+    /**
+     * Returns for given revision (not revision 0) all revision properties.
+     *
+     * @param _revision     revision for which the properties are searched
+     * @return property information for given <code>_revision</code>
+     * @throws ServerException if e.g. <code>_revision</code> does not exists
+     *                         in repository
+     * @see #getRevision0Properties()
+     */
+    public RevisionPropertyValues getRevisionProperties(final long _revision)
+            throws ServerException;
+
+    /**
+     * Returns for revision 0 all revision property. The properties for
+     * revision 0 are used from SVN to hold about information about
+     * synchronizes with other SVN instances.
+     *
+     * @return property information for revision 0
+     * @throws ServerException
+     * @see #getRevisionProperties(long)
+     */
+    public Revision0PropertyValues getRevision0Properties()
+            throws ServerException;
 
     /**
      * Method is called from the session, just before closing the session
