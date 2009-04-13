@@ -43,6 +43,14 @@ public class SimpleTests
         extends AbstractTest
 {
     /**
+     * Log message of revision 1.
+     *
+     * @see #createDirectory()
+     * @see #propGetLogRev1()
+     */
+    private final static String REV1_LOG = "My Message of revision 1";
+
+    /**
      * The method tests if for the repository URL {@link #getRepositoryURL()}
      * appended with &quot;Test&quot; SVN command &quot;info&quot; not works,
      * because for this case the SVN repository path must not exists.
@@ -92,6 +100,7 @@ public class SimpleTests
      * @throws ExecuteException
      * @throws ParserConfigurationException
      * @throws SAXException
+     * @see #REV1_LOG
      */
     @Test(timeOut = 10000)
     public void createDirectory()
@@ -100,7 +109,7 @@ public class SimpleTests
         final File dir = new File(this.getWCPath(), "temp1");
         dir.mkdir();
         this.execute(false, "add", "temp1");
-        this.execute(true, "--message", "My Message", "commit");
+        this.execute(true, "--message", REV1_LOG, "commit");
         final Map<String,DirEntry> entries = this.readDir();
         Assert.assertEquals(entries.size(), 1, "only directory 'temp1' was submitted, but found " + entries);
         Assert.assertTrue(entries.containsKey("temp1"));
@@ -204,5 +213,36 @@ public class SimpleTests
             throws InterruptedException, IOException, ExecuteException
     {
         this.execute(true, "--verbose", "--revprop", "--revision", "0", "proplist", this.getRepositoryURL());
+    }
+
+    /**
+     * Test if the revision properties for revision 1 could be listed.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     */
+    @Test(dependsOnMethods = "createDirectory", timeOut = 10000)
+    public void propListRev1()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        this.execute(true, "--verbose", "--revprop", "--revision", "1", "proplist", this.getRepositoryURL());
+    }
+
+    /**
+     * Tests that the log message from revision 1 fetched with <i>propget</i>
+     * is equal to the used log message in {@link #createDirectory()}.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @see #REV1_LOG
+     */
+    @Test(dependsOnMethods = "createDirectory", timeOut = 10000)
+    public void propGetLogRev1()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        final String log = this.execute(true, "--revprop", "--revision", "1", "propget", "svn:log", this.getRepositoryURL());
+        Assert.assertEquals(log, REV1_LOG);
     }
 }

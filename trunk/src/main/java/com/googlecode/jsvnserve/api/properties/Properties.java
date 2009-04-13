@@ -18,7 +18,7 @@
  * Last Changed By: $Author$
  */
 
-package com.googlecode.jsvnserve.api;
+package com.googlecode.jsvnserve.api.properties;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -91,36 +91,84 @@ public class Properties
         /**
          * Contains the authenticated user name of the person who created the
          * revision.
+         *
+         * @see RevisionProperties
          */
         REVISION_AUTHOR("svn:author", false, true, false, false),
 
         /**
          * Contains the UTC time the revision was created, in ISO 8601 format.
          * The value comes from the server machine's clock, not the client's.
+         *
+         * @see RevisionProperties
          */
         REVISION_DATE("svn:date", false, true, false, false),
 
         /**
-         * Contains the log message describing the revision.
-         */
-        REVISION_LOG("svn:log", false, true, false, false),
-
-        /**
          *
+         *
+         * @see RevisionProperties
          */
         REVISION_ORIGINAL_DATE("svn:original-date", false, true, false, false),
 
         /**
+         * Contains the log message describing the revision.
+         *
+         * @see RevisionProperties
+         */
+        REVISION_LOG("svn:log", false, true, false, false),
+
+        /**
          * If present, the revision was created via the auto-versioning
          * feature.
+         *
+         * @see RevisionProperties
          */
         REVISION_AUTOVERSIONED("svn:autoversioned", false, true, false, false),
 
-
+        /**
+         * For a SVN sync, the property holds the revision which is currently
+         * copied. The property could be only defined as revision property for
+         * revision 0.
+         *
+         * @see Revision0Properties
+         */
         REVISION0_CURRENTLY_COPYING("svn:sync-currently-copying", false, false, true, false),
+
+        /**
+         * For a SVN sync, the property hold the original SVN URL from where is
+         * synchronized. The property could be only defined as revision
+         * property for revision 0.
+         *
+         * @see Revision0Properties
+         */
         REVISION0_FROM_URL("svn:sync-from-url", false, false, true, false),
+
+        /**
+         * For a SVN sync, the property hold the UUID of the original SVN
+         * instance from where it is synchronized. The property could be only
+         * defined as revision property for revision 0.
+         *
+         * @see Revision0Properties
+         */
         REVISION0_FROM_UUID("svn:sync-from-uuid", false, false, true, false),
+
+        /**
+         * For a SVN sync, the property holds the revision number of the last
+         * synchronized revision. The property could be only defined as
+         * revision property for revision 0.
+         *
+         * @see Revision0Properties
+         */
         REVISION0_LAST_MERGED_REVISION("svn:sync-last-merged-rev", false, false, true, false),
+
+        /**
+         * For a SVN sync, the property holds the lock string if a SVN sync
+         * runs. The property could be only defined as revision property for
+         * revision 0.
+         *
+         * @see Revision0Properties
+         */
         REVISION0_LOCK("svn:sync-lock", false, false, true, false),
 
         /**
@@ -239,5 +287,17 @@ public class Properties
                     final String _value)
     {
         this.put(_key.svnKey, _value);
+    }
+
+    /**
+     * Remove given property key from this map if present. Because the map uses
+     * original string, the {@link PropertyKey#svnKey} is removed from this
+     * map.
+     *
+     * @param _key  key to remove from this map
+     */
+    public void remove(final PropertyKey _key)
+    {
+        this.remove(_key.svnKey);
     }
 }

@@ -174,7 +174,7 @@ System.err.println("Execute " + cmd);
         if (exit != 0)  {
             throw new ExecuteException(bck.toString());
         }
-        return bck.toString();
+        return bck.toString().trim();
     }
 
     /**

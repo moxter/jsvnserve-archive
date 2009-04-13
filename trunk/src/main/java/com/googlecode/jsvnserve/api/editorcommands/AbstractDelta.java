@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
-import com.googlecode.jsvnserve.api.Properties.PropertyKey;
+import com.googlecode.jsvnserve.api.properties.Properties.PropertyKey;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
