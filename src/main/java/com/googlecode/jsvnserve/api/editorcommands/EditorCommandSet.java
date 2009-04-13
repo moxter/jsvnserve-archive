@@ -238,6 +238,17 @@ public class EditorCommandSet
                                                       params.get(0).getString(),
                                                       null, null, null));
                     break;
+                case OPEN_FILE:
+                    this.addDelta(new DeltaFileOpen(params.get(2).getString(),
+                                                    params.get(0).getString(),
+                                                    params.get(3).getList().get(0).getNumber()));
+                    break;
+                case CHANGE_FILE_PROP:
+                    final String cfpToken = params.get(0).getString();
+                    final AbstractDelta cfpDelta = this.mapToken2Delta.get(cfpToken);
+                    cfpDelta.addProperty(params.get(1).getString(),
+                                         params.get(2).getList().get(0).getString());
+                    break;
                 case APPLY_TEXTDELTA:
                     final String apToken = params.get(0).getString();
                     final AbstractDeltaFile apDelta = (AbstractDeltaFile) this.mapToken2Delta.get(apToken);
@@ -256,7 +267,12 @@ public class EditorCommandSet
                     break;
                 case CLOSE_FILE:
                     final String cfToken = params.get(0).getString();
-                    final String cfMD5 = params.get(1).getList().get(0).getString();
+                    final String cfMD5;
+                    if ((params.size() > 1) && (params.get(1).getList().size() > 0))  {
+                        cfMD5 = params.get(1).getList().get(0).getString();
+                    } else  {
+                        cfMD5 = null;
+                    }
                     final AbstractDeltaFile cfDelta = (AbstractDeltaFile) this.mapToken2Delta.get(cfToken);
                     cfDelta.closeFile(cfMD5);
                     break;

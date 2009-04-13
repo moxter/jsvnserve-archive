@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -211,8 +212,9 @@ System.err.println("Execute " + cmd);
      * @throws SAXException                 if XML with the directory entries
      *                                      could not be parsed
      */
-    public Map<String,DirEntry> readDir() throws InterruptedException, IOException,
-            ExecuteException, ParserConfigurationException, SAXException
+    protected Map<String,DirEntry> readDir()
+            throws InterruptedException, IOException,
+                   ExecuteException, ParserConfigurationException, SAXException
     {
         final String xml = this.execute(true,
                                         "--revision", "HEAD",
@@ -245,6 +247,55 @@ System.err.println("Execute " + cmd);
                             size = 0;
                         }
                         ret.put(name, new DirEntry(name, kind, size));
+                    }
+                }
+            }
+            node = node.getNextSibling();
+        }
+        return ret;
+    }
+
+    /**
+     * Reads the complete log.
+     *
+     * @return
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    protected Map<Long, LogEntry> readLog()
+            throws InterruptedException, IOException,
+                   ExecuteException, ParserConfigurationException, SAXException
+    {
+        final String xml = this.execute(true,
+                                        "--revision", "1:HEAD",
+                                        "--verbose",
+                                        "--xml",
+                                        "log");
+
+        final DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+        final DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
+        final Document doc = docBuilder.parse(new ByteArrayInputStream(xml.getBytes()));
+
+        final Map<Long, LogEntry> ret = new TreeMap<Long,LogEntry>();
+        Node node = doc.getDocumentElement().getFirstChild();
+        while (node != null)  {
+            if (node.getNodeType() == Node.ELEMENT_NODE)  {
+                final Element logElement = (Element) node;
+                final long revision = Long.parseLong(logElement.getAttribute("revision"));
+                final String author = logElement.getElementsByTagName("author").item(0).getFirstChild().getNodeValue();
+//                final String date = entry.getElementsByTagName("date").item(0).getFirstChild().getNodeValue();
+                final String msg = logElement.getElementsByTagName("msg").item(0).getFirstChild().getNodeValue();
+                final LogEntry logEntry = new LogEntry(revision, author, msg);
+                ret.put(revision, logEntry);
+                final NodeList pathsList = logElement.getElementsByTagName("paths");
+                if (pathsList.getLength() > 0)  {
+                    final NodeList pathList = ((Element) pathsList.item(0)).getElementsByTagName("path");
+                    for (int idx = 0; idx < pathList.getLength(); idx++)  {
+                        final Element path = (Element) pathList.item(idx);
+                        logEntry.paths.put(path.getTextContent(), path.getAttribute("action"));
                     }
                 }
             }
@@ -315,6 +366,35 @@ System.err.println("Execute " + cmd);
 
         /** File. */
         FILE;
+    }
+
+    protected class LogEntry
+    {
+        final long revision;
+
+        final String author;
+
+        final String message;
+
+        final Map<String,String> paths = new HashMap<String,String>();
+
+        private LogEntry(final long _revision,
+                         final String _author,
+                         final String _message)
+        {
+            this.revision = _revision;
+            this.author = _author;
+            this.message = _message;
+        }
+
+        @Override
+        public String toString()
+        {
+            return  "[revision = " + this.revision
+                    + ", author = " + this.author
+                    + ", message = " + this.message
+                    + ", paths = " + this.paths + "]";
+        }
     }
 }
 

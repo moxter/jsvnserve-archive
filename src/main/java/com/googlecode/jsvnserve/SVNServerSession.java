@@ -65,6 +65,7 @@ import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.StringElement;
 import com.googlecode.jsvnserve.element.WordElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.util.Timestamp;
 
 /**
  * <p>The Subversion protocol is specified in terms of the following
@@ -259,17 +260,17 @@ public class SVNServerSession
             }
 
             // get repository
-            String errorMsg = null;
+            ServerException exception = null;
             try  {
                 this.repository = this.repositoryFactory.createRepository(this.user,
                         "".equals(hostUri.getPath()) ? "/" : hostUri.getPath());
             } catch (final ServerException ex)  {
-                errorMsg = ex.getMessage();
+                exception = ex;
             }
 
             // if no repository exists.... => return error message
-            if (errorMsg != null)  {
-                this.streams.writeFailureStatus(errorMsg);
+            if (exception != null)  {
+                this.streams.writeFailureStatus(exception);
             } else  {
 
                 URI rootURI = new URI(hostUri.getScheme(),
@@ -607,7 +608,7 @@ public class SVNServerSession
         }
 
         if (exception != null)  {
-            this.streams.writeFailureStatus(exception.getMessage());
+            this.streams.writeFailureStatus(exception);
         } else  {
 
             final ListElement propList = new ListElement();
@@ -678,7 +679,7 @@ public class SVNServerSession
         }
 
         if (exception != null)  {
-            this.streams.writeFailureStatus(exception.getMessage());
+            this.streams.writeFailureStatus(exception);
         } else  {
             final String value = props.get(propKey);
 
@@ -824,7 +825,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
 
             // commit failed
             if (serverException != null)  {
-                this.streams.writeFailureStatus(serverException.getMessage());
+                this.streams.writeFailureStatus(serverException);
             // commit was successfully
             } else  {
                 this.streams.writeItemList(
@@ -859,23 +860,19 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         final boolean wantsProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE ? true : false;
         final boolean wantsContent = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE ? true : false;
 
-        final DirEntry dirEntry = this.getRepository().stat(revision, path, wantsProps);
+        DirEntry dirEntry = null;
+        try {
+            dirEntry = this.getRepository().stat(revision, path, wantsProps);
+        } catch (ServerException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
 
         final ListElement props = new ListElement();
         if (wantsProps)  {
             props.add(new ListElement(PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
-                                      this.getRepository().getUUID().toString()),
-                      new ListElement(PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
-                                      String.valueOf(dirEntry.getRevision())),
-                      new ListElement(PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
-                                      dirEntry.getDate()),
-                      new ListElement(PropertyKey.ENTRY_DIR_ENTRY_CHECKSUM.getSVNKey(),
-                                      dirEntry.getFileMD5()));
-            if (dirEntry.getAuthor() != null)  {
-                props.add(new ListElement(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR.getSVNKey(),
-                                          dirEntry.getAuthor()));
-            }
-            for (final Map.Entry<String,String> prop : dirEntry.getProperties().entrySet())  {
+                                      this.getRepository().getUUID().toString()));
+            for (final Map.Entry<String,String> prop : dirEntry.entrySet())  {
                 props.add(new ListElement(prop.getKey(), prop.getValue()));
             }
         }
@@ -981,22 +978,20 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         final boolean wantProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE;
         final boolean wantContents = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE;
 
-        final DirEntry dirEntry = this.getRepository().stat(revision, path, wantProps);
+        DirEntry dirEntry = null;
+        try {
+            dirEntry = this.getRepository().stat(revision, path, wantProps);
+        } catch (ServerException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
 
         // evaluate properties
         final ListElement propList = new ListElement();
         if (wantProps)  {
             propList.add(new ListElement(PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
-                                         this.getRepository().getUUID().toString()),
-                         new ListElement(PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
-                                         String.valueOf(dirEntry.getRevision())),
-                         new ListElement(PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
-                                         dirEntry.getDate()));
-            if (dirEntry.getAuthor() != null)  {
-                propList.add(new ListElement(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR.getSVNKey(),
-                                             dirEntry.getAuthor()));
-            }
-            for (final Map.Entry<String,String> prop : dirEntry.getProperties().entrySet())  {
+                                         this.getRepository().getUUID().toString()));
+            for (final Map.Entry<String,String> prop : dirEntry.entrySet())  {
                 propList.add(new ListElement(prop.getKey(), prop.getValue()));
             }
         }
@@ -1033,13 +1028,14 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
                                                                      author);
 
             for (final DirEntry entry : dirEntryList.getEntries())  {
+                final Timestamp date = entry.getDate();
                 dirList.add(new ListElement(
                         entry.getName(),
                         kind ? entry.getKind() : Word.NODE_KIND_NONE,
                         size ? entry.getFileSize() : 0,
                         hasProps ? Word.BOOLEAN_FALSE : Word.BOOLEAN_FALSE,
                         createdRev ? entry.getRevision() : 0,
-                        new ListElement(modified ? entry.getDate() : StringElement.NULL_DATETIME),
+                        new ListElement((modified && (date != null)) ? date.toString() : StringElement.NULL_DATETIME),
                         (author && (entry.getAuthor() != null))
                                 ? new ListElement(entry.getAuthor())
                                 : new ListElement()));
@@ -1088,12 +1084,22 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
             revision = revParams.get(0).getNumber();
         }
 
-        final DirEntry entry = this.getRepository().stat(revision, path, false);
+        DirEntry entry = null;
+        ServerException exception = null;
+        try {
+            entry = this.getRepository().stat(revision, path, false);
+        } catch (final ServerException ex) {
+            exception = ex;
+        }
 
-        this.streams.writeItemList(
-                SVNServerSession.NO_AUTHORIZATION_NEEDED,
-                new ListElement(Word.STATUS_SUCCESS,
-                                new ListElement(entry.getKind())));
+        if (exception != null)  {
+            this.streams.writeFailureStatus(exception);
+        } else  {
+            this.streams.writeItemList(
+                    SVNServerSession.NO_AUTHORIZATION_NEEDED,
+                    new ListElement(Word.STATUS_SUCCESS,
+                                    new ListElement(entry.getKind())));
+        }
     }
 
     /**
@@ -1131,9 +1137,20 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         final String path = this.buildPath(_parameters.get(0).getString());
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
 
-        final DirEntry entry = this.getRepository().stat(revision, path, false);
+        DirEntry entry = null;
+        ServerException exception = null;
+        try {
+            entry = this.getRepository().stat(revision, path, false);
+        } catch (final ServerException ex) {
+            exception = ex;
+        } catch (final Throwable e)  {
+            exception  = new ServerException(e.getMessage());
+        }
 
-        if (entry != null)  {
+        if (exception != null)  {
+            this.streams.writeFailureStatus(exception);
+        } else if (entry != null)  {
+            final Timestamp date = entry.getDate();
             this.streams.writeItemList(
                     SVNServerSession.NO_AUTHORIZATION_NEEDED,
                     new ListElement(Word.STATUS_SUCCESS,
@@ -1142,7 +1159,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
                                     entry.getFileSize(),
                                     Word.BOOLEAN_FALSE,/* hasprops */
                                     entry.getRevision(),
-                                    new ListElement(entry.getDate() != null ? entry.getDate() : StringElement.NULL_DATETIME),
+                                    new ListElement(date != null ? date.toString() : StringElement.NULL_DATETIME),
                                     (entry.getAuthor() != null)
                                             ? new ListElement(entry.getAuthor())
                                             : new ListElement())))));
@@ -1231,16 +1248,16 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         EditorCommandSet deltaEditor = null;
-        String errorMsg = null;
+        ServerException exception = null;
         try  {
             deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
         } catch (final ServerException ex)  {
-            errorMsg = ex.getMessage();
+            exception = ex;
         }
 
-        if (errorMsg != null)  {
+        if (exception != null)  {
             this.streams.writeItemList(new ListElement(Word.ABORT_EDIT, new ListElement()));
-            this.streams.writeFailureStatus(errorMsg);
+            this.streams.writeFailureStatus(exception);
         } else  {
             // editor mode
             deltaEditor.write(this.streams);
@@ -1316,16 +1333,16 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
 
         EditorCommandSet deltaEditor = null;
-        String errorMsg = null;
+        ServerException exception = null;
         try  {
             deltaEditor = this.getRepository().getStatus(revision, path, depth, report);
         } catch (final ServerException ex)  {
-            errorMsg = ex.getMessage();
+            exception = ex;
         }
 
-        if (errorMsg != null)  {
+        if (exception != null)  {
             this.streams.writeItemList(new ListElement(Word.ABORT_EDIT, new ListElement()));
-            this.streams.writeFailureStatus(errorMsg);
+            this.streams.writeFailureStatus(exception);
         } else  {
             // editor mode
             deltaEditor.write(this.streams);

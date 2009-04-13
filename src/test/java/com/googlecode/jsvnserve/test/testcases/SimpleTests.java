@@ -245,4 +245,48 @@ public class SimpleTests
         final String log = this.execute(true, "--revprop", "--revision", "1", "propget", "svn:log", this.getRepositoryURL());
         Assert.assertEquals(log, REV1_LOG);
     }
+
+    /**
+     * Property 'svn:eol-style' is set for file created with
+     * {@link #createFile()}. The result is checked.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    @Test(dependsOnMethods = "createFile", timeOut = 10000)
+    public void setFileProperty()
+            throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        this.execute(false, "--force", "propset", "svn:eol-style", "LF", "temp1/file1.txt");
+        this.execute(true, "--message", "My Message", "commit");
+
+        final Map<Long,LogEntry> log = this.readLog();
+        final long lastRev = (Long) log.keySet().toArray()[log.size() - 1];
+        final LogEntry logEntry = log.get(lastRev);
+        Assert.assertTrue(!logEntry.paths.isEmpty(), "last commit had one file modified");
+        Assert.assertEquals((String) logEntry.paths.keySet().toArray()[0], "/temp1/file1.txt");
+        Assert.assertEquals(this.execute(true, "propget", "svn:eol-style", this.getRepositoryURL() + "/temp1/file1.txt"), "LF", "check property value");
+    }
+
+    /**
+     * Check that the get property value for 'svn:eol-style' for non existing
+     * file failed.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     */
+    @Test(expectedExceptions = AssertionError.class, timeOut = 10000)
+    public void testFilePropertyOnNonExisting()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        try  {
+            this.execute(true, "propget", "svn:eol-style", this.getRepositoryURL() + "/temp1/file2.txt.tmp");
+        } catch (final ExecuteException ex)  {
+            Assert.assertFalse(ex.getMessage().contains("File not found"));
+        }
+    }
 }
