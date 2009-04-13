@@ -20,11 +20,12 @@
 
 package com.googlecode.jsvnserve.api;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.util.Timestamp;
 
 /**
  *
@@ -32,6 +33,7 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * @version $Id$
  */
 public final class DirEntry
+        extends Properties
 {
     /**
      * Name of the directory entry.
@@ -45,29 +47,9 @@ public final class DirEntry
     private final Word kind;
 
     /**
-     * Revision where this directory entry is committed.
-     */
-    private final Long revision;
-
-    /**
-     * Committed modified date time of this directory entry.
-     */
-    private final Date date;
-
-    /**
-     * Author of this directory entry.
-     */
-    private final String author;
-
-    /**
      * Size of a file content.
      */
     private final int fileSize;
-
-    /**
-     * MD5 hash of a file content.
-     */
-    private final String fileMD5;
 
     /**
      * Holds the properties of a directory entry.
@@ -77,23 +59,31 @@ public final class DirEntry
     private DirEntry(final String _name,
                      final Word _kind,
                      final Long _revision,
-                     final Date _date,
+                     final Timestamp _date,
                      final String _author,
                      final int _fileSize,
                      final String _fileMD5)
     {
         this.name = _name;
         this.kind = _kind;
-        this.revision = _revision;
-        this.date = _date;
-        this.author = _author;
         this.fileSize = _fileSize;
-        this.fileMD5 = _fileMD5;
+        if (_fileMD5 != null)  {
+            this.put(PropertyKey.ENTRY_DIR_ENTRY_CHECKSUM, _fileMD5);
+        }
+        if (_revision != null)  {
+            this.put(PropertyKey.ENTRY_DIR_ENTRY_REVISION, String.valueOf(_revision));
+        }
+        if (_date != null)  {
+            this.put(PropertyKey.ENTRY_DIR_ENTRY_DATE, _date.toString());
+        }
+        if (_author != null)  {
+            this.put(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR, _author);
+        }
     }
 
     public static DirEntry createDirectory(final String _name,
                                            final Long _revision,
-                                           final Date _modified,
+                                           final Timestamp _modified,
                                            final String _author)
     {
         return new DirEntry(_name,
@@ -107,7 +97,7 @@ public final class DirEntry
 
     public static DirEntry createFile(final String _name,
                                       final Long _revision,
-                                      final Date _modified,
+                                      final Timestamp _modified,
                                       final String _author,
                                       final int _fileSize,
                                       final String _fileMD5)
@@ -121,20 +111,6 @@ public final class DirEntry
                             _fileMD5);
     }
 
-    /**
-     * Adds a new property to this directory instance.
-     *
-     * @param _key      key name of the property
-     * @param _value    value of the property
-     * @return this directory entry instance
-     */
-    public DirEntry addProperty(final String _key,
-                                final String _value)
-    {
-        this.properties.put(_key, _value);
-        return this;
-    }
-
     public String getName()
     {
         return this.name;
@@ -145,33 +121,29 @@ public final class DirEntry
         return this.kind;
     }
 
-    public long getRevision()
-    {
-        return this.revision;
-    }
-
-    public Date getDate()
-    {
-        return this.date;
-    }
-
-    public String getAuthor()
-    {
-        return this.author;
-    }
-
     public int getFileSize()
     {
         return this.fileSize;
     }
 
-    public String getFileMD5()
+    public Long getRevision()
     {
-        return this.fileMD5;
+        final String revision = this.get(PropertyKey.ENTRY_DIR_ENTRY_REVISION);
+        return (revision == null) ? null : Long.parseLong(revision);
     }
 
-    public Map<String, String> getProperties()
+    public Timestamp getDate()
     {
-        return this.properties;
+        return Timestamp.valueOf(this.get(PropertyKey.ENTRY_DIR_ENTRY_DATE));
+    }
+
+    public String getAuthor()
+    {
+        return this.get(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR);
+    }
+
+    public String getFileMD5()
+    {
+        return this.get(PropertyKey.ENTRY_DIR_ENTRY_CHECKSUM);
     }
 }

@@ -21,9 +21,10 @@
 package com.googlecode.jsvnserve.api;
 
 import java.util.Collection;
-import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
+
+import com.googlecode.jsvnserve.util.Timestamp;
 
 /**
  *
@@ -56,7 +57,7 @@ public class DirEntryList
      */
     public void addDirectory(final String _name,
                              final Long _revision,
-                             final Date _date,
+                             final Timestamp _date,
                              final String _author)
     {
         this.entries.put(_name, DirEntry.createDirectory(_name,
@@ -75,7 +76,7 @@ public class DirEntryList
      */
     public void addFile(final String _name,
                         final Long _revision,
-                        final Date _date,
+                        final Timestamp _date,
                         final String _author,
                         final int _fileSize)
     {

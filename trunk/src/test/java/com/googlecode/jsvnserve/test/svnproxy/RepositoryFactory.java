@@ -92,11 +92,13 @@ import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCopy;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryOpen;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaFileCreate;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaFileOpen;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaRootOpen;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
 import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.api.properties.Revision0PropertyValues;
 import com.googlecode.jsvnserve.api.properties.RevisionPropertyValues;
+import com.googlecode.jsvnserve.util.Timestamp;
 
 /**
  *
@@ -260,6 +262,14 @@ public class RepositoryFactory
                         editor.addDir(delta.getPath(), null, -1);
                     } else if (delta instanceof DeltaDirectoryOpen)  {
                         editor.openDir(delta.getPath(), -1);
+                    } else if (delta instanceof DeltaFileOpen)  {
+                        final DeltaFileOpen fileOpen = (DeltaFileOpen) delta;
+                        editor.openFile(fileOpen.getPath(), fileOpen.getRevision());
+                        for (final Map.Entry<String,String> entry : fileOpen.getProperties().entrySet())  {
+                            editor.changeFileProperty(fileOpen.getPath(),
+                                                      entry.getKey(),
+                                                      SVNPropertyValue.create(entry.getValue()));
+                        }
                     } else if (delta instanceof DeltaFileCreate)  {
 final AbstractDeltaFile fileDelta = (AbstractDeltaFile) delta;
 editor.addFile(delta.getPath(), null, -1);
@@ -377,12 +387,12 @@ String checksum = deltaGenerator.sendDelta(delta.getPath(), fileDelta.getInputSt
                     if (dirEntry.getKind().equals(SVNNodeKind.DIR))  {
                         ret.addDirectory(dirEntry.getName(),
                                          dirEntry.getRevision(),
-                                         dirEntry.getDate(),
+                                         Timestamp.valueOf(dirEntry.getDate()),
                                          dirEntry.getAuthor());
                     } else if (dirEntry.getKind().equals(SVNNodeKind.FILE))  {
                         ret.addFile(dirEntry.getName(),
                                     dirEntry.getRevision(),
-                                    dirEntry.getDate(),
+                                    Timestamp.valueOf(dirEntry.getDate()),
                                     dirEntry.getAuthor(),
                                     (int) dirEntry.getSize());
                     } else  {
@@ -427,53 +437,41 @@ System.out.println("temp="+temp);
         public DirEntry stat(final Long _revision,
                              final CharSequence _path,
                              final boolean _includeProperties)
+                throws ServerException
         {
-//            this.svnRepository.getRepositoryPath(relativePath)
-//            SVNReplicationEditor editor = new SVNReplicationEditor();
-//            this.svnRepository.status(_revision, _path.toString(), false, reporter, editor)
-            //our editor only stores properties of files and directories
+            DirEntry dirEntry = null;
 
             try {
                 final SVNNodeKind nodeKind = this.svnRepository.checkPath(_path.toString(),
                                                                           (_revision == null) ? -1 : _revision);
+                final SVNProperties props = new SVNProperties();
                 if (SVNNodeKind.DIR.equals(nodeKind))  {
-                    final SVNProperties props = new SVNProperties();
                     this.svnRepository.getDir(_path.toString(),
                                               (_revision == null) ? -1 : _revision,
                                               props,
                                               0,
                                               (Collection<?>) null);
-//System.out.println("props="+props.asMap());
-                    return DirEntry.createDirectory(_path.toString(),
-                                                    Long.parseLong(props.getStringValue("svn:entry:committed-rev")),
-// irgendwie wird da falsch geparst
-                                                    DATETIMEFORMAT.parse(props.getStringValue("svn:entry:committed-date")),
-                                                    props.getStringValue("svn:entry:last-author"));
+                    dirEntry = DirEntry.createDirectory(_path.toString(), null, null, null);
                 } else  {
-                    final SVNProperties props = new SVNProperties();
                     this.svnRepository.getFile(_path.toString(),
                                                (_revision == null) ? -1 : _revision,
                                                props,
                                                null);
-//System.out.println("props="+props.asMap());
-                    return DirEntry.createFile(_path.toString(),
-                                               Long.parseLong(props.getStringValue("svn:entry:committed-rev")),
-                                               DATETIMEFORMAT.parse(props.getStringValue("svn:entry:committed-date")),
-                                               props.getStringValue("svn:entry:last-author"),
-                                               0,
-                                               props.getStringValue("svn:entry:checksum"));
+                    dirEntry = DirEntry.createFile(_path.toString(), null, null, null, 0, null);
                 }
+
+                for (final Map.Entry<String,SVNPropertyValue> entry
+                            : ((Map<String,SVNPropertyValue>) props.asMap()).entrySet())  {
+                    if (!"svn:entry:uuid".equals(entry.getKey()))  {
+                        dirEntry.put(entry.getKey(),
+                                     (entry.getValue() != null) ? entry.getValue().getString() : null);
+                    }
+                }
+
             } catch (final SVNException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            } catch (final NumberFormatException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            } catch (final ParseException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                throw new ServerException(e.getMessage(), e);
             }
-            return null;
+            return dirEntry;
         }
 
         public long getLatestRevision()

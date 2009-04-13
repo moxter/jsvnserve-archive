@@ -211,7 +211,8 @@ public interface IRepository
      */
     public DirEntry stat(final Long _revision,
                          final CharSequence _path,
-                         final boolean _includeProperties);
+                         final boolean _includeProperties)
+            throws ServerException;
 
     /**
      * <p>Returns for given paths depending on the start and end revision the

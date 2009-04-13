@@ -33,6 +33,7 @@ import javax.security.sasl.SaslServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
@@ -214,6 +215,13 @@ public class SVNSessionStreams
     {
         this.writeFailureStatus(ErrorCode.UNKNOWN, _errorMessage);
     }
+
+    public void writeFailureStatus(final ServerException _exception)
+            throws UnsupportedEncodingException, IOException
+    {
+        this.writeFailureStatus(ErrorCode.UNKNOWN, _exception.getMessage());
+    }
+
 
     public void writeWithoutFlush(final String _text)
             throws UnsupportedEncodingException, IOException

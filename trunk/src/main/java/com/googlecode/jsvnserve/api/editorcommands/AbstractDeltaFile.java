@@ -194,7 +194,9 @@ throw new ServerException("temporary file '" + this.file + "' not found");
             } catch (final IOException e) {
             }
         }
-        this.file.delete();
+        if (this.file != null)  {
+            this.file.delete();
+        }
     }
 
 }
