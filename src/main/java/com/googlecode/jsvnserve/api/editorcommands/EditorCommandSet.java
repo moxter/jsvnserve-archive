@@ -145,8 +145,8 @@ public class EditorCommandSet
                                     final Long _committedRevision,
                                     final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaRootOpen(this.getNewToken('d'), _lastAuthor, _committedRevision, _committedDate);
-        this.addDelta(delta);
+        final AbstractDelta delta = new DeltaRootOpen(getNewToken('d'), _lastAuthor, _committedRevision, _committedDate);
+        addDelta(delta);
         return delta;
     }
 
@@ -155,8 +155,8 @@ public class EditorCommandSet
                                    final Long _committedRevision,
                                    final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaDirectoryCreate(this.getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
-        this.addDelta(delta);
+        final AbstractDelta delta = new DeltaDirectoryCreate(getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
+        addDelta(delta);
         return delta;
     }
 
@@ -165,8 +165,8 @@ public class EditorCommandSet
                                    final Long _committedRevision,
                                    final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaDirectoryOpen(this.getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
-        this.addDelta(delta);
+        final AbstractDelta delta = new DeltaDirectoryOpen(getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
+        addDelta(delta);
         return delta;
     }
 
@@ -180,11 +180,21 @@ public class EditorCommandSet
      */
     public AbstractDelta createFile(final String _path,
                                     final String _lastAuthor,
-                                    final Long _revision,
-                                    final Date _date)
+                                    final Long _committedRevision,
+                                    final Date _committedDate)
     {
-        final AbstractDelta delta = new DeltaFileCreate(this.getNewToken('f'), _path, _lastAuthor, _revision, _date);
-        this.addDelta(delta);
+        final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path, _lastAuthor, _committedRevision, _committedDate);
+        addDelta(delta);
+        return delta;
+    }
+
+    public AbstractDelta delete(final String _path,
+                                final String _lastAuthor,
+                                final Long _committedRevision,
+                                final Date _committedDate)
+    {
+        final AbstractDelta delta = new DeltaDelete(_path, _lastAuthor, _committedRevision, _committedDate);
+        addDelta(delta);
         return delta;
     }
 
@@ -201,12 +211,12 @@ public class EditorCommandSet
         boolean closed = false;
         final Set<String> unknownCommands = new TreeSet<String>();
         while (!closed)  {
-            ListElement list = _streams.readItemList();
+            final ListElement list = _streams.readItemList();
             final Word key = list.getList().get(0).getWord();
             final List<AbstractElement<?>> params = list.getList().get(1).getList();
             switch (key)  {
                 case OPEN_ROOT:
-                    this.addDelta(new DeltaRootOpen(params.get(1).getString(),
+                    addDelta(new DeltaRootOpen(params.get(1).getString(),
                                                     null, null, null));
                     break;
                 case ADD_DIR:
@@ -215,16 +225,16 @@ public class EditorCommandSet
                     final List<AbstractElement<?>> copyList = params.get(3).getList();
                     // new directory
                     if (copyList.isEmpty())  {
-                        this.addDelta(new DeltaDirectoryCreate(dirToken, dirPath, null, null, null));
+                        addDelta(new DeltaDirectoryCreate(dirToken, dirPath, null, null, null));
                     // directory is copied
                     } else  {
                         final String copyPath = _streams.getSession().extractPathFromURL(copyList.get(0).getString());
                         final long copyRevision = copyList.get(1).getNumber();
-                        this.addDelta(new DeltaDirectoryCopy(dirToken, dirPath, copyPath, copyRevision, null, null, null));
+                        addDelta(new DeltaDirectoryCopy(dirToken, dirPath, copyPath, copyRevision, null, null, null));
                     }
                     break;
                 case OPEN_DIR:
-                    this.addDelta(new DeltaDirectoryOpen(params.get(2).getString(),
+                    addDelta(new DeltaDirectoryOpen(params.get(2).getString(),
                                                          params.get(0).getString(),
                                                          null, null, null));
                     break;
@@ -234,12 +244,12 @@ public class EditorCommandSet
                     closed = true;
                     break;
                 case ADD_FILE:
-                    this.addDelta(new DeltaFileCreate(params.get(2).getString(),
+                    addDelta(new DeltaFileCreate(params.get(2).getString(),
                                                       params.get(0).getString(),
                                                       null, null, null));
                     break;
                 case OPEN_FILE:
-                    this.addDelta(new DeltaFileOpen(params.get(2).getString(),
+                    addDelta(new DeltaFileOpen(params.get(2).getString(),
                                                     params.get(0).getString(),
                                                     params.get(3).getList().get(0).getNumber()));
                     break;
@@ -289,7 +299,7 @@ throw new ServerException("Unknown command(s) " + unknownCommands);
 
     public void close()
     {
-        for (final AbstractDelta delta : this.getDeltas())  {
+        for (final AbstractDelta delta : getDeltas())  {
             delta.close();
         }
     }
@@ -303,10 +313,10 @@ throw new ServerException("Unknown command(s) " + unknownCommands);
     public void write(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException
     {
-        _streams.writeItemList(new ListElement(Word.TARGET_REV, new ListElement(this.getTargetRevision())));
+        _streams.writeItemList(new ListElement(Word.TARGET_REV, new ListElement(getTargetRevision())));
 
         final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
-        for (final AbstractDelta delta : this.getDeltas())  {
+        for (final AbstractDelta delta : getDeltas())  {
             final String parentToken;
             if (stack.isEmpty())  {
                 parentToken = null;
