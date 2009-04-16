@@ -289,4 +289,75 @@ public class SimpleTests
             Assert.assertFalse(ex.getMessage().contains("File not found"));
         }
     }
+
+    /**
+     * Creates new directory &quot;/temp3&quot; directly on the SVN server.
+     * That the new created directory exists is tested.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    @Test(dependsOnMethods = "createFile", timeOut = 10000)
+    public void createTemp3DirOnServer()
+            throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        this.execute(true, "--message", "Temp3 created", "mkdir", this.getRepositoryURL() + "/temp3");
+        final Map<String,DirEntry> entries = this.readDir();
+        Assert.assertEquals(entries.size(), 6);
+        Assert.assertTrue(entries.containsKey("temp3"));
+    }
+
+    /**
+     * Makes and update of the working copy.
+     *
+     * @throws ExecuteException
+     * @throws IOException
+     * @throws InterruptedException
+     *
+     */
+    @Test(dependsOnMethods = "createTemp3DirOnServer", timeOut = 10000)
+    public void updateWC() throws InterruptedException, IOException, ExecuteException
+    {
+        this.execute(true, "update");
+    }
+
+    /**
+     * Deletes directory &quot;/temp3&quot; directly on the SVN server.
+     * That the deleted directory not exists is tested. Used to test the delete
+     * entry of the command set from client to server.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    @Test(dependsOnMethods = "updateWC", timeOut = 10000)
+    public void deleteTemp3DirOnServer()
+            throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        this.execute(true, "--message", "Temp3 deleted", "rm", this.getRepositoryURL() + "/temp3");
+        final Map<String,DirEntry> entries = this.readDir();
+        Assert.assertEquals(entries.size(), 5);
+        Assert.assertFalse(entries.containsKey("temp3"));
+    }
+
+    /**
+     * Makes and update of the working copy. Used to test the delete entry
+     * of the command set from server to client.
+     *
+     * @throws ExecuteException
+     * @throws IOException
+     * @throws InterruptedException
+     *
+     */
+    @Test(dependsOnMethods = "deleteTemp3DirOnServer", timeOut = 10000)
+    public void updateWCAfterDeleteTemp3()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        this.execute(true, "update");
+    }
 }
