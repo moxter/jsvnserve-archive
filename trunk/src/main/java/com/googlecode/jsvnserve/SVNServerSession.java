@@ -281,7 +281,7 @@ public class SVNServerSession
                         new ListElement(Word.STATUS_SUCCESS,
                                 new ListElement(this.getRepository().getUUID().toString(),
                                                 rootURI.toASCIIString(),
-                                                new ListElement(Word.MERGEINFO))));
+                                                new ListElement(/*Word.MERGEINFO*/))));
 
                 ListElement items = this.streams.readItemList();
                 while (items != null)  {
@@ -1098,7 +1098,9 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
             this.streams.writeItemList(
                     SVNServerSession.NO_AUTHORIZATION_NEEDED,
                     new ListElement(Word.STATUS_SUCCESS,
-                                    new ListElement(entry.getKind())));
+                                    (entry != null)
+                                            ? new ListElement(entry.getKind())
+                                            : new ListElement(Word.NODE_KIND_NONE)));
         }
     }
 
