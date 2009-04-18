@@ -286,7 +286,7 @@ public class SimpleTests
         try  {
             this.execute(true, "propget", "svn:eol-style", this.getRepositoryURL() + "/temp1/file2.txt.tmp");
         } catch (final ExecuteException ex)  {
-            Assert.assertFalse(ex.getMessage().contains("File not found"));
+            Assert.assertFalse(ex.getMessage().contains("does not exist"));
         }
     }
 
@@ -361,5 +361,43 @@ public class SimpleTests
         this.execute(true, "update");
         final File file = new File(this.getWCPath(), "temp3");
         Assert.assertFalse(file.exists(), "path not deleted locally!");
+    }
+
+    /**
+     * Copy directory &quot;temp1&quot; to &quot;temp3&quot; on the server.
+     * @throws ExecuteException
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws SAXException
+     * @throws ParserConfigurationException
+     */
+    @Test(dependsOnMethods = "updateWCAfterDeleteTemp3", timeOut = 10000)
+    public void copyTemp12Temp3DirOnServer() throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        this.execute(true, "--message", "temp1 copied to temp3", "copy",
+                     this.getRepositoryURL() + "/temp1",
+                     this.getRepositoryURL() + "/temp3");
+        final Map<String,DirEntry> entries = this.readDir();
+        Assert.assertEquals(entries.size(), 9);
+        Assert.assertTrue(entries.containsKey("temp3"));
+    }
+
+    /**
+     * Makes and update of the working copy. Used to test the delete entry
+     * of the command set from server to client.
+     *
+     * @throws ExecuteException
+     * @throws IOException
+     * @throws InterruptedException
+     *
+     */
+    @Test(dependsOnMethods = "copyTemp12Temp3DirOnServer", timeOut = 10000)
+    public void updateWCAfterCopyTemp12Temp3DirOnServer()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        this.execute(true, "update");
+        Assert.assertTrue(new File(this.getWCPath(), "temp3/file1.txt").exists());
+        Assert.assertTrue(new File(this.getWCPath(), "temp3/sub1").exists());
+        Assert.assertTrue(new File(this.getWCPath(), "temp3/sub2").exists());
     }
 }
