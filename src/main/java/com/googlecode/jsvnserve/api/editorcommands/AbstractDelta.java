@@ -88,7 +88,17 @@ public abstract class AbstractDelta
     {
     }
 
-    protected abstract void writeOpen(final SVNSessionStreams _streams,
+    /**
+     *
+     * @param _targetRevision   target revision for which the the SVN editor
+     *                          commands must be written
+     * @param _streams          session stream with the output streams
+     * @param _parentToken      token of the parent directory
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    protected abstract void writeOpen(final long _targetRevision,
+                                      final SVNSessionStreams _streams,
                                       final String _parentToken)
             throws UnsupportedEncodingException, IOException;
 

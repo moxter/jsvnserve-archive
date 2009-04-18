@@ -322,7 +322,7 @@ throw new ServerException("Unknown command(s) " + unknownCommands);
             }
 
             stack.add(delta);
-            delta.writeOpen(_streams, parentToken);
+            delta.writeOpen(this.targetRevision, _streams, parentToken);
         }
 
         while (!stack.empty())  {

@@ -55,8 +55,20 @@ public class DeltaFileCreate
         super(_token, _path, null, null);
     }
 
+    /**
+     *
+     * @param _targetRevision   target revision for which the the SVN editor
+     *                          commands must be written; used for the revision
+     *                          of the file (to get the input stream from the
+     *                          repository)
+     * @param _streams
+     * @param _parentToken      token of the parent directory
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
     @Override
-    protected void writeOpen(final SVNSessionStreams _streams,
+    protected void writeOpen(final long _targetRevision,
+                             final SVNSessionStreams _streams,
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
@@ -74,7 +86,7 @@ public class DeltaFileCreate
         String md5 = "";
         try {
             md5 = deltaGenerator.sendDelta(this.getToken(),
-                    _streams.getSession().getRepository().getFile(this.getCommittedRevision(), this.getPath()),
+                    _streams.getSession().getRepository().getFile(_targetRevision, this.getPath()),
                     new ISVNDeltaConsumer() {
                         boolean writeHeader = true;
 

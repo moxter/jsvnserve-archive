@@ -46,8 +46,18 @@ public class DeltaDirectoryCreate
         super(_token, _path, null, null);
     }
 
+    /**
+     *
+     * @param _targetRevision   target revision for which the the SVN editor
+     *                          commands must be written (not used)
+     * @param _streams
+     * @param _parentToken      token of the parent directory
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
     @Override
-    protected void writeOpen(final SVNSessionStreams _streams,
+    protected void writeOpen(final long _targetRevision,
+                             final SVNSessionStreams _streams,
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
