@@ -359,5 +359,7 @@ public class SimpleTests
             throws InterruptedException, IOException, ExecuteException
     {
         this.execute(true, "update");
+        final File file = new File(this.getWCPath(), "temp3");
+        Assert.assertFalse(file.exists(), "path not deleted locally!");
     }
 }
