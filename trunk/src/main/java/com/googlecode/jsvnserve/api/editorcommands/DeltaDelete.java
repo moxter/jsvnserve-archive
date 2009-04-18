@@ -109,11 +109,14 @@ public class DeltaDelete
      * Writes the delete entry word together with the path, the revision (if
      * not <code>null</code>) and the token of the parent directory.
      *
-     * @param _streams      session streams
-     * @param _parentToken  token of parent directory
+     * @param _targetRevision   target revision for which the the SVN editor
+     *                          commands must be written (not used)
+     * @param _streams          session streams
+     * @param _parentToken      token of parent directory
      */
     @Override
-    protected void writeOpen(final SVNSessionStreams _streams,
+    protected void writeOpen(final long _targetRevision,
+                             final SVNSessionStreams _streams,
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
