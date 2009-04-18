@@ -207,7 +207,8 @@ public interface IRepository
      *                              head revision is searched)
      * @param _path                 searched path
      * @param _includeProperties    must the properties included?
-     * @return
+     * @return directory entry if the path is a file or a directory; otherwise
+     *         <code>null</code> must be returned
      */
     public DirEntry stat(final Long _revision,
                          final CharSequence _path,
