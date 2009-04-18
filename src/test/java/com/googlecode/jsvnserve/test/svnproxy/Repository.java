@@ -48,6 +48,7 @@ import org.tmatesoft.svn.core.SVNLogEntryPath;
 import org.tmatesoft.svn.core.SVNNodeKind;
 import org.tmatesoft.svn.core.SVNProperties;
 import org.tmatesoft.svn.core.SVNPropertyValue;
+import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.io.ISVNEditor;
 import org.tmatesoft.svn.core.io.ISVNLocationEntryHandler;
@@ -102,7 +103,6 @@ public class Repository
     /**
      *
      */
-    private final RepositoryFactory repositoryFactory;
     final SVNRepository svnRepository;
     final SVNClientManager clientManager;
 
@@ -120,18 +120,17 @@ public class Repository
      */
     final String rootPath;
 
-        Repository(final RepositoryFactory repositoryFactory,
-                   final String _user,
-                   final String _repositoryPath,
-                   final String _rootPath)
-                throws SVNException
-        {
-            this.repositoryFactory = repositoryFactory;
-            this.repositoryPath = _repositoryPath;
-            this.rootPath = _rootPath;
-            this.clientManager = SVNClientManager.newInstance(null, new BasicAuthenticationManager(_user , _user));
-            this.svnRepository = this.clientManager.createRepository(this.repositoryFactory.svnURL.appendPath(_rootPath, false), false);
-        }
+    public Repository(final SVNURL _svnUrl,
+                      final String _user,
+                      final String _repositoryPath,
+                      final String _rootPath)
+            throws SVNException
+    {
+        this.repositoryPath = _repositoryPath;
+        this.rootPath = _rootPath;
+        this.clientManager = SVNClientManager.newInstance(null, new BasicAuthenticationManager(_user , _user));
+        this.svnRepository = this.clientManager.createRepository(_svnUrl, false);
+    }
 
         public UUID getUUID()
         {
