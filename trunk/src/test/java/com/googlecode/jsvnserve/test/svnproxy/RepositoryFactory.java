@@ -61,7 +61,11 @@ public class RepositoryFactory
     {
         if ("/proxy".equals(_path) || _path.startsWith("/proxy/"))  {
             try  {
-                return new Repository(this, _user, "/proxy", _path.substring("/proxy".length()));
+                final String rootpath = _path.substring("/proxy".length());
+                return new Repository(this.svnURL.appendPath(rootpath, false),
+                                      _user,
+                                      "/proxy",
+                                      rootpath);
             } catch (final SVNException ex)  {
                 throw new ServerException("initalize of the repository failed", ex);
             }
