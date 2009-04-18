@@ -255,12 +255,28 @@ public class RepositoryFactory
 
                     if (delta instanceof DeltaRootOpen)  {
                         editor.openRoot(-1);
+                        for (final Map.Entry<String,String> entry : delta.entrySet())  {
+                            editor.changeDirProperty(entry.getKey(),
+                                                     SVNPropertyValue.create(entry.getValue()));
+                        }
                     } else if (delta instanceof DeltaDirectoryCopy)  {
                         editor.addDir(delta.getPath(), delta.getCopiedPath(), delta.getCopiedRevision());
+                        for (final Map.Entry<String,String> entry : delta.entrySet())  {
+                            editor.changeDirProperty(entry.getKey(),
+                                                      SVNPropertyValue.create(entry.getValue()));
+                        }
                     } else if (delta instanceof DeltaDirectoryCreate)  {
                         editor.addDir(delta.getPath(), null, -1);
+                        for (final Map.Entry<String,String> entry : delta.entrySet())  {
+                            editor.changeDirProperty(entry.getKey(),
+                                                     SVNPropertyValue.create(entry.getValue()));
+                        }
                     } else if (delta instanceof DeltaDirectoryOpen)  {
                         editor.openDir(delta.getPath(), -1);
+                        for (final Map.Entry<String,String> entry : delta.entrySet())  {
+                            editor.changeDirProperty(entry.getKey(),
+                                                     SVNPropertyValue.create(entry.getValue()));
+                        }
                     } else if (delta instanceof DeltaFileOpen)  {
                         final DeltaFileOpen fileOpen = (DeltaFileOpen) delta;
                         editor.openFile(fileOpen.getPath(), fileOpen.getRevision());
