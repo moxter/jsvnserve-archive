@@ -209,6 +209,9 @@ public class EditorCommandSet
                 case OPEN_ROOT:
                     this.addDelta(new DeltaRootOpen(params));
                     break;
+                case DELETE_ENTRY:
+                    this.addDelta(new DeltaDelete(params));
+                    break;
                 case ADD_DIR:
                     final String dirPath = params.get(0).getString();
                     final String dirToken = params.get(2).getString();
@@ -226,6 +229,12 @@ public class EditorCommandSet
                 case OPEN_DIR:
                     this.addDelta(new DeltaDirectoryOpen(params));
                     break;
+                case CHANGE_DIR_PROP:
+                    final String cdpToken = params.get(0).getString();
+                    final AbstractDelta cdpDelta = this.mapToken2Delta.get(cdpToken);
+                    cdpDelta.put(params.get(1).getString(),
+                                 params.get(2).getList().get(0).getString());
+                    break;
                 case CLOSE_DIR:
                     break;
                 case CLOSE_EDIT:
@@ -239,12 +248,6 @@ public class EditorCommandSet
                     this.addDelta(new DeltaFileOpen(params.get(2).getString(),
                                                     params.get(0).getString(),
                                                     params.get(3).getList().get(0).getNumber()));
-                    break;
-                case CHANGE_FILE_PROP:
-                    final String cfpToken = params.get(0).getString();
-                    final AbstractDelta cfpDelta = this.mapToken2Delta.get(cfpToken);
-                    cfpDelta.put(params.get(1).getString(),
-                                 params.get(2).getList().get(0).getString());
                     break;
                 case APPLY_TEXTDELTA:
                     final String apToken = params.get(0).getString();
@@ -262,6 +265,12 @@ public class EditorCommandSet
                     final AbstractDeltaFile teDelta = (AbstractDeltaFile) this.mapToken2Delta.get(teToken);
                     teDelta.textDeltaEnd();
                     break;
+                case CHANGE_FILE_PROP:
+                    final String cfpToken = params.get(0).getString();
+                    final AbstractDelta cfpDelta = this.mapToken2Delta.get(cfpToken);
+                    cfpDelta.put(params.get(1).getString(),
+                                 params.get(2).getList().get(0).getString());
+                    break;
                 case CLOSE_FILE:
                     final String cfToken = params.get(0).getString();
                     final String cfMD5;
@@ -272,9 +281,6 @@ public class EditorCommandSet
                     }
                     final AbstractDeltaFile cfDelta = (AbstractDeltaFile) this.mapToken2Delta.get(cfToken);
                     cfDelta.closeFile(cfMD5);
-                    break;
-                case DELETE_ENTRY:
-                    this.addDelta(new DeltaDelete(params));
                     break;
                 default:
                     unknownCommands.add(key.value);

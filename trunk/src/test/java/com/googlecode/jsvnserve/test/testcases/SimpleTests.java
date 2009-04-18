@@ -400,4 +400,29 @@ public class SimpleTests
         Assert.assertTrue(new File(this.getWCPath(), "temp3/sub1").exists());
         Assert.assertTrue(new File(this.getWCPath(), "temp3/sub2").exists());
     }
+
+    /**
+     * Sets property &quot;test-property&quot; to value &quot;test-value&quot;
+     * for directory &quot;temp3&quot;.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    @Test(dependsOnMethods = "updateWCAfterCopyTemp12Temp3DirOnServer", timeOut = 10000)
+    public void setTemp3DirProperty()
+            throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        this.execute(false, "--force", "propset", "test-property", "test-value", "temp3");
+        this.execute(true, "--message", "My Message", "commit");
+
+        final Map<Long,LogEntry> log = this.readLog();
+        final long lastRev = (Long) log.keySet().toArray()[log.size() - 1];
+        final LogEntry logEntry = log.get(lastRev);
+        Assert.assertTrue(!logEntry.paths.isEmpty(), "last commit had one directory modified");
+        Assert.assertEquals((String) logEntry.paths.keySet().toArray()[0], "/temp3");
+        Assert.assertEquals(this.execute(true, "propget", "test-property", this.getRepositoryURL() + "/temp3"), "test-value", "check property value");
+    }
 }
