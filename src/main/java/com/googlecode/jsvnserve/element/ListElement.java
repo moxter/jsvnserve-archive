@@ -67,7 +67,11 @@ public class ListElement
             } else if (arg instanceof byte[])  {
                 this.getValue().add(new StringElement((byte[]) arg));
             } else  {
-                System.err.println("unknown class "+ arg.getClass());
+                if (arg == null)  {
+System.err.println("value not defined!! (" + this.toString() + ")");
+                } else  {
+System.err.println("unknown class "+ arg.getClass());
+                }
             }
         }
     }
