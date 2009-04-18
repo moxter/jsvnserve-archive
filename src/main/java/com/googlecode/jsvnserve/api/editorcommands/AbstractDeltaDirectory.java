@@ -22,7 +22,6 @@ package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Date;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
@@ -36,18 +35,18 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
 public abstract class AbstractDeltaDirectory
         extends AbstractDelta
 {
+    /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = -8336853748673925296L;
 
     AbstractDeltaDirectory(final String _token,
                            final String _path,
                            final String _copiedPath,
-                           final Long _copiedRevision,
-                           final String _author,
-                           final Long _revision,
-                           final Date _date)
+                           final Long _copiedRevision)
     {
         super(_token, _path,
-              _copiedPath, _copiedRevision,
-              _author, _revision, _date);
+              _copiedPath, _copiedRevision);
     }
 
     @Override

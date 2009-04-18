@@ -22,7 +22,6 @@ package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Date;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.ListElement;
@@ -36,13 +35,15 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
 public class DeltaDirectoryCreate
         extends AbstractDeltaDirectory
 {
+    /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = 6670953714593904415L;
+
     DeltaDirectoryCreate(final String _token,
-                         final String _path,
-                         final String _lastAuthor,
-                         final Long _committedRevision,
-                         final Date _committedDate)
+                         final String _path)
     {
-        super(_token, _path, null, null,  _lastAuthor, _committedRevision, _committedDate);
+        super(_token, _path, null, null);
     }
 
     @Override

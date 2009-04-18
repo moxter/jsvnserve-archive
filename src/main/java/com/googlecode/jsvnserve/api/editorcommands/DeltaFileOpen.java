@@ -35,6 +35,11 @@ public class DeltaFileOpen
         extends AbstractDeltaFile
 {
     /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = 4917399931185488168L;
+
+    /**
      * Holds the revision of the file.
      *
      * @see #getRevision()
@@ -51,7 +56,7 @@ public class DeltaFileOpen
                   final String _path,
                   final long _revision)
     {
-        super(_token, _path, null, null, null, null, null);
+        super(_token, _path, null, null);
         this.revision = _revision;
     }
 

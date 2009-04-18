@@ -27,12 +27,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +86,7 @@ import com.googlecode.jsvnserve.api.ReportList.SetPath;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDelta;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaDirectory;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaFile;
+import com.googlecode.jsvnserve.api.editorcommands.DeltaDelete;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCopy;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryOpen;
@@ -265,7 +264,7 @@ public class RepositoryFactory
                     } else if (delta instanceof DeltaFileOpen)  {
                         final DeltaFileOpen fileOpen = (DeltaFileOpen) delta;
                         editor.openFile(fileOpen.getPath(), fileOpen.getRevision());
-                        for (final Map.Entry<String,String> entry : fileOpen.getProperties().entrySet())  {
+                        for (final Map.Entry<String,String> entry : fileOpen.entrySet())  {
                             editor.changeFileProperty(fileOpen.getPath(),
                                                       entry.getKey(),
                                                       SVNPropertyValue.create(entry.getValue()));
@@ -276,8 +275,13 @@ editor.addFile(delta.getPath(), null, -1);
 editor.applyTextDelta(delta.getPath(), null);
 SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
 String checksum = deltaGenerator.sendDelta(delta.getPath(), fileDelta.getInputStream(), editor, true);
+                    } else if (delta instanceof DeltaDelete)  {
+                        final DeltaDelete delete = (DeltaDelete) delta;
+                        editor.deleteEntry(delete.getPath(),
+                                           (delete.getRevision() == null) ? -1 : delete.getRevision());
                     } else  {
-// TODO: check if not implemented classes are used
+                        editor.abortEdit();
+                        throw new ServerException("class '" + delta.getClass() + "' not supported for commit!");
                     }
                 }
                 while (!stack.empty())  {
@@ -452,7 +456,7 @@ System.out.println("temp="+temp);
                                               0,
                                               (Collection<?>) null);
                     dirEntry = DirEntry.createDirectory(_path.toString(), null, null, null);
-                } else  {
+                } else if (SVNNodeKind.FILE.equals(nodeKind))  {
                     this.svnRepository.getFile(_path.toString(),
                                                (_revision == null) ? -1 : _revision,
                                                props,
@@ -460,14 +464,15 @@ System.out.println("temp="+temp);
                     dirEntry = DirEntry.createFile(_path.toString(), null, null, null, 0, null);
                 }
 
-                for (final Map.Entry<String,SVNPropertyValue> entry
-                            : ((Map<String,SVNPropertyValue>) props.asMap()).entrySet())  {
-                    if (!"svn:entry:uuid".equals(entry.getKey()))  {
-                        dirEntry.put(entry.getKey(),
-                                     (entry.getValue() != null) ? entry.getValue().getString() : null);
+                if (dirEntry != null)  {
+                    for (final Map.Entry<String,SVNPropertyValue> entry
+                                : ((Map<String,SVNPropertyValue>) props.asMap()).entrySet())  {
+                        if (!"svn:entry:uuid".equals(entry.getKey()))  {
+                            dirEntry.put(entry.getKey(),
+                                         (entry.getValue() != null) ? entry.getValue().getString() : null);
+                        }
                     }
                 }
-
             } catch (final SVNException e) {
                 throw new ServerException(e.getMessage(), e);
             }
@@ -708,170 +713,16 @@ try {
     throw new ServerException(e.getMessage(), e);
 }
 
-System.out.println("editor="+editor.list);
-final EditorCommandSet deltaEditor = new EditorCommandSet(editor.targetRevision);
-try  {
-            for (final AbstractDir dir : editor.list)  {
-                dir.createDelta(deltaEditor);
-            }
-} catch (final Exception e)  {
-    e.printStackTrace();
-}
-            return deltaEditor;
-        }
-    }
-
-    abstract class AbstractDir
-            extends HashMap<String,String>
-    {
-        final String path;
-
-        final long revision;
-
-        final String copiedPath;
-
-        final long copiedRevision;
-
-        AbstractDir(final String _path,
-                    final long _revision,
-                    final String _copiedPath,
-                    final long _copiedRevision)
-        {
-            this.path = _path;
-            this.revision = _revision;
-            this.copiedPath = _copiedPath;
-            this.copiedRevision = _copiedRevision;
-        }
-
-        public abstract void createDelta(final EditorCommandSet _deltaEditor)
-                throws NumberFormatException, ParseException;
-    }
-
-    class OpenRoot
-        extends AbstractDir
-    {
-        OpenRoot(final long _revision)
-        {
-            super(null, _revision, null, -1);
-        }
-
-
-        @Override
-        public void createDelta(final EditorCommandSet _deltaEditor)
-                throws NumberFormatException, ParseException
-        {
-            final AbstractDelta delta = _deltaEditor.updateRoot(
-                    "tim",
-                    containsKey("svn:entry:committed-rev")
-                            ? Long.parseLong(get("svn:entry:committed-rev"))
-                            : null,
-                    containsKey("svn:entry:committed-date")
-                            ? DATETIMEFORMAT.parse(get("svn:entry:committed-date"))
-                            : null);
-     for (final Map.Entry<String,String> entry : entrySet())  {
-         if (!"svn:entry:committed-rev".equals(entry.getKey())
-                 && !"svn:entry:committed-date".equals(entry.getKey())
-                 && !"svn:entry:last-author".equals(entry.getKey())
-                 && !"svn:entry:uuid".equals(entry.getKey()))  {
-             delta.addProperty(entry.getKey(), entry.getValue());
-         }
-     }
-        }
-    }
-
-    class UpdateDir
-            extends AbstractDir
-    {
-        UpdateDir(final String _path,
-                  final long _revision)
-        {
-            super(_path, _revision, null, -1);
-        }
-
-        @Override
-        public void createDelta(final EditorCommandSet _deltaEditor)
-                throws NumberFormatException, ParseException
-        {
-            final AbstractDelta delta = _deltaEditor.updateDir(this.path,
-                                    "tim",
-                                   Long.parseLong(get("svn:entry:committed-rev")),
-                                   DATETIMEFORMAT.parse(get("svn:entry:committed-date")));
-            for (final Map.Entry<String,String> entry : entrySet())  {
-                if (!"svn:entry:committed-rev".equals(entry.getKey())
-                        && !"svn:entry:committed-date".equals(entry.getKey())
-                        && !"svn:entry:last-author".equals(entry.getKey())
-                        && !"svn:entry:uuid".equals(entry.getKey()))  {
-                    delta.addProperty(entry.getKey(), entry.getValue());
-                }
-            }
-        }
-    }
-
-    class CreateDir
-            extends AbstractDir
-    {
-        CreateDir(final String _path,
-                  final String _copiedPath,
-                  final long _copiedRevision)
-        {
-            super(_path, -1, _copiedPath, _copiedRevision);
-        }
-
-        @Override
-        public void createDelta(final EditorCommandSet _deltaEditor)
-                throws NumberFormatException, ParseException
-        {
-            final AbstractDelta delta = _deltaEditor.createDir(this.path,
-                                   "tim",
-                                   Long.parseLong(get("svn:entry:committed-rev")),
-                                   DATETIMEFORMAT.parse(get("svn:entry:committed-date")));
-            for (final Map.Entry<String,String> entry : entrySet())  {
-                if (!"svn:entry:committed-rev".equals(entry.getKey())
-                        && !"svn:entry:committed-date".equals(entry.getKey())
-                        && !"svn:entry:last-author".equals(entry.getKey())
-                        && !"svn:entry:uuid".equals(entry.getKey()))  {
-                    delta.addProperty(entry.getKey(), entry.getValue());
-                }
-            }
-        }
-    }
-
-    class CreateFile
-            extends AbstractDir
-    {
-        CreateFile(final String _path,
-                   final String _copiedPath,
-                   final long _copiedRevision)
-        {
-            super(_path, -1, _copiedPath, _copiedRevision);
-        }
-
-        @Override
-        public void createDelta(final EditorCommandSet _deltaEditor)
-                throws NumberFormatException, ParseException
-        {
-            final AbstractDelta delta = _deltaEditor.createFile(this.path, "tim",
-                                                        Long.parseLong(get("svn:entry:committed-rev")),
-                                                        DATETIMEFORMAT.parse(get("svn:entry:committed-date")));
-            for (final Map.Entry<String,String> entry : entrySet())  {
-                if (!"svn:entry:committed-rev".equals(entry.getKey())
-                        && !"svn:entry:committed-date".equals(entry.getKey())
-                        && !"svn:entry:last-author".equals(entry.getKey())
-                        && !"svn:entry:uuid".equals(entry.getKey()))  {
-                    delta.addProperty(entry.getKey(), entry.getValue());
-                }
-            }
+            return editor.deltaEditor;
         }
     }
 
     public class SVNEditor
             implements ISVNEditor
     {
-        private long targetRevision;
+        private EditorCommandSet deltaEditor;
 
-        private final Stack<AbstractDir> stack = new Stack<AbstractDir>();
-
-        private final List<AbstractDir> list = new ArrayList<AbstractDir>();
+        private final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
 
         public void abortEdit() throws SVNException
         {
@@ -889,9 +740,13 @@ try  {
                 throws SVNException
         {
             System.out.println("addDir("+_path+","+_copiedPath+","+_copiedRevision+")");
-            final AbstractDir path = new CreateDir(_path, _copiedPath, _copiedRevision);
-            this.stack.add(path);
-            this.list.add(path);
+            final AbstractDelta delta;
+            if ((_copiedPath != null) && (_copiedRevision >= 0))  {
+delta= null;
+            } else  {
+                delta = this.deltaEditor.createDir(_path);
+            }
+            this.stack.add(delta);
         }
 
         public void changeDirProperty(final String _propKey,
@@ -899,7 +754,9 @@ try  {
                 throws SVNException
         {
             System.out.println("changeDirProperty("+_propKey+","+_propValue+")");
-            this.stack.peek().put(_propKey, (_propValue != null) ? _propValue.toString() : null);
+            if (!"svn:entry:uuid".equals(_propKey))  {
+                this.stack.peek().put(_propKey, (_propValue != null) ? _propValue.toString() : null);
+            }
         }
 
         public void closeDir() throws SVNException
@@ -911,9 +768,8 @@ try  {
         public void openDir(final String _path, final long _revision)
         {
             System.out.println("openDir("+_path+","+_revision+")");
-            final AbstractDir path = new UpdateDir(_path, _revision);
-            this.stack.add(path);
-            this.list.add(path);
+            final AbstractDelta delta = this.deltaEditor.updateDir(_path, (_revision >= 0) ? _revision : null);
+            this.stack.add(delta);
         }
 
         public void absentFile(final String s)
@@ -926,9 +782,13 @@ try  {
                             final long _copiedRevision)
         {
             System.out.println("addFile("+_path+","+_copiedPath+","+_copiedRevision+")");
-            final AbstractDir path = new CreateFile(_path, _copiedPath, _copiedRevision);
-            this.stack.add(path);
-            this.list.add(path);
+            final AbstractDelta delta;
+            if ((_copiedPath != null) && (_copiedRevision >= 0))  {
+delta= null;
+            } else  {
+                delta = this.deltaEditor.createFile(_path);
+            }
+            this.stack.add(delta);
         }
 
         public void changeFileProperty(final String _path,
@@ -936,7 +796,9 @@ try  {
                                        final SVNPropertyValue _propValue)
         {
             System.out.println("changeFileProperty("+_propKey+","+_propValue+")");
-            this.stack.peek().put(_propKey, (_propValue != null) ? _propValue.toString() : null);
+            if (!"svn:entry:uuid".equals(_propKey))  {
+                this.stack.peek().put(_propKey, (_propValue != null) ? _propValue.toString() : null);
+            }
         }
 
         public void closeFile(final String s, final String s1)
@@ -957,22 +819,22 @@ try  {
             return null;
         }
 
-        public void deleteEntry(final String s, final long l)
+        public void deleteEntry(final String _path, final long _revision)
         {
-            System.out.println("deleteEntry("+s+","+l+")");
+            System.out.println("deleteEntry("+_path+","+_revision+")");
+            this.deltaEditor.delete(_path, (_revision >= 0) ? _revision : null);
         }
 
         public void openRoot(final long _revision) throws SVNException
         {
             System.out.println("openRoot("+_revision+")");
-            final AbstractDir rootPath = new OpenRoot(_revision);
-            this.stack.add(rootPath);
-            this.list.add(rootPath);
+            final AbstractDelta delta = this.deltaEditor.updateRoot((_revision >= 0) ? _revision : null);
+            this.stack.add(delta);
         }
 
         public void targetRevision(final long _targetRevision)
         {
-            this.targetRevision = _targetRevision;
+            this.deltaEditor = new EditorCommandSet(_targetRevision);
         }
 
         public void applyTextDelta(final String s, final String s1) throws SVNException

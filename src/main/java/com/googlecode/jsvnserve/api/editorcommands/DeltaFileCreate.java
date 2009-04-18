@@ -44,13 +44,15 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
 public class DeltaFileCreate
         extends AbstractDeltaFile
 {
+    /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = -8348087046520885577L;
+
     DeltaFileCreate(final String _token,
-                    final String _path,
-                    final String _lastAuthor,
-                    final Long _committedRevision,
-                    final Date _committedDate)
+                    final String _path)
     {
-        super(_token, _path, null, null, _lastAuthor, _committedRevision, _committedDate);
+        super(_token, _path, null, null);
     }
 
     @Override

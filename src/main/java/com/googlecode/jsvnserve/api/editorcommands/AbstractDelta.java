@@ -22,14 +22,13 @@ package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Date;
 import java.util.Map;
-import java.util.TreeMap;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
-import com.googlecode.jsvnserve.api.properties.Properties.PropertyKey;
+import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.util.Timestamp;
 
 /**
  *
@@ -37,7 +36,13 @@ import com.googlecode.jsvnserve.element.WordElement.Word;
  * @version $Id$
  */
 public abstract class AbstractDelta
+        extends Properties
 {
+    /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = -3022875288811307279L;
+
     /**
      * Current token of the delta.
      *
@@ -65,42 +70,15 @@ public abstract class AbstractDelta
      */
     private final Long copiedRevision;
 
-    /**
-     * Last author.
-     */
-    private final String lastAuthor;
-
-    /**
-     * Committed revision.
-     *
-     * @see #getCommittedRevision()
-     */
-    private final Long committedRevision;
-
-    /**
-     * Committed date.
-     *
-     * @see #getCommittedDate()
-     */
-    private final Date committedDate;
-
-    private final Map<String,String> properties = new TreeMap<String,String>();
-
     AbstractDelta(final String _token,
                   final String _path,
                   final String _copiedPath,
-                  final Long _copiedRevision,
-                  final String _lastAuthor,
-                  final Long _committedRevision,
-                  final Date _committedDate)
+                  final Long _copiedRevision)
     {
         this.token = _token;
         this.path = _path;
         this.copiedPath = _copiedPath;
         this.copiedRevision = _copiedRevision;
-        this.lastAuthor = _lastAuthor;
-        this.committedRevision = _committedRevision;
-        this.committedDate = _committedDate;
     }
 
     /**
@@ -121,29 +99,11 @@ public abstract class AbstractDelta
                                       final Word _word)
             throws UnsupportedEncodingException, IOException
     {
-        if (this.getCommittedRevision() != null)  {
-            this.writeProperty(_streams,
-                               _word,
-                               PropertyKey.ENTRY_DIR_ENTRY_REVISION.getSVNKey(),
-                               String.valueOf(this.getCommittedRevision()));
-        }
-        if (this.getCommittedDate() != null)  {
-            this.writeProperty(_streams,
-                               _word,
-                               PropertyKey.ENTRY_DIR_ENTRY_DATE.getSVNKey(),
-                               this.getCommittedDate());
-        }
         this.writeProperty(_streams,
                            _word,
                            PropertyKey.ENTRY_REPOSITORY_UUID.getSVNKey(),
                            _streams.getSession().getRepository().getUUID().toString());
-        if (this.getLastAuthor() != null)  {
-            this.writeProperty(_streams,
-                               _word,
-                               PropertyKey.ENTRY_DIR_ENTRY_AUTHOR.getSVNKey(),
-                               this.getLastAuthor());
-        }
-        for (final Map.Entry<String,String> propEntry : this.getProperties().entrySet())  {
+        for (final Map.Entry<String,String> propEntry : this.entrySet())  {
             this.writeProperty(_streams, _word, propEntry.getKey(), propEntry.getValue());
         }
     }
@@ -157,22 +117,6 @@ public abstract class AbstractDelta
         _streams.writeItemList(new ListElement(_word,
                                                new ListElement(this.getToken(), _key, new ListElement(_value))));
 
-    }
-
-    /**
-     * Adds a new property.
-     *
-     * @param _key      key of the property
-     * @param _value    value of the property
-     */
-    public void addProperty(final String _key, final String _value)
-    {
-        this.properties.put(_key, _value);
-    }
-
-    public Map<String, String> getProperties()
-    {
-        return this.properties;
     }
 
     public String getToken()
@@ -195,18 +139,39 @@ public abstract class AbstractDelta
         return this.copiedRevision;
     }
 
+    public void setLastAuthor(final String _author)
+    {
+        this.put(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR, _author);
+    }
+
     public String getLastAuthor()
     {
-        return this.lastAuthor;
+        return this.get(PropertyKey.ENTRY_DIR_ENTRY_AUTHOR);
+    }
+
+    public void setCommittedRevision(final Long _revision)
+    {
+        this.put(PropertyKey.ENTRY_DIR_ENTRY_REVISION,
+                 (_revision != null) ? String.valueOf(_revision) : null);
     }
 
     public Long getCommittedRevision()
     {
-        return this.committedRevision;
+        final String revStr = this.get(PropertyKey.ENTRY_DIR_ENTRY_REVISION);
+        return (revStr == null) ? null : Long.valueOf(revStr);
     }
 
-    public Date getCommittedDate()
+    public void setCommittedDate(final Timestamp _date)
     {
-        return this.committedDate;
+        this.put(PropertyKey.ENTRY_DIR_ENTRY_DATE,
+                 (_date != null) ? _date.toString() : null);
+    }
+
+    public Timestamp getCommittedDate()
+    {
+        final String dateStr = this.get(PropertyKey.ENTRY_DIR_ENTRY_DATE);
+        return (dateStr == null)
+               ? null
+               : Timestamp.valueOf(dateStr);
     }
 }
