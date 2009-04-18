@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -141,60 +140,52 @@ public class EditorCommandSet
         return new StringBuilder().append(_prefix).append(++this.tokenIndex).toString();
     }
 
-    public AbstractDelta updateRoot(final String _lastAuthor,
-                                    final Long _committedRevision,
-                                    final Date _committedDate)
+    public AbstractDelta updateRoot(final Long _revision)
     {
-        final AbstractDelta delta = new DeltaRootOpen(getNewToken('d'), _lastAuthor, _committedRevision, _committedDate);
-        addDelta(delta);
+        final AbstractDelta delta = new DeltaRootOpen(getNewToken('d'), _revision);
+        this.addDelta(delta);
         return delta;
     }
 
-    public AbstractDelta createDir(final String _path,
-                                   final String _lastAuthor,
-                                   final Long _committedRevision,
-                                   final Date _committedDate)
+    public AbstractDelta createDir(final String _path)
     {
-        final AbstractDelta delta = new DeltaDirectoryCreate(getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
-        addDelta(delta);
+        final AbstractDelta delta = new DeltaDirectoryCreate(getNewToken('d'), _path);
+        this.addDelta(delta);
         return delta;
     }
 
     public AbstractDelta updateDir(final String _path,
-                                   final String _lastAuthor,
-                                   final Long _committedRevision,
-                                   final Date _committedDate)
+                                   final Long _revision)
     {
-        final AbstractDelta delta = new DeltaDirectoryOpen(getNewToken('d'), _path, _lastAuthor, _committedRevision, _committedDate);
-        addDelta(delta);
+        final AbstractDelta delta = new DeltaDirectoryOpen(getNewToken('d'), _path, _revision);
+        this.addDelta(delta);
         return delta;
     }
 
     /**
      *
      * @param _path         path of the file
-     * @param _revision     commited revision of the file
-     * @param _date         commited date of the file
      * @return new create delta instance
      * @see DeltaFileCreate
      */
-    public AbstractDelta createFile(final String _path,
-                                    final String _lastAuthor,
-                                    final Long _committedRevision,
-                                    final Date _committedDate)
+    public AbstractDelta createFile(final String _path)
     {
-        final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path, _lastAuthor, _committedRevision, _committedDate);
-        addDelta(delta);
+        final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path);
+        this.addDelta(delta);
         return delta;
     }
 
+    /**
+     *
+     * @param _path
+     * @param _revision
+     * @return
+     */
     public AbstractDelta delete(final String _path,
-                                final String _lastAuthor,
-                                final Long _committedRevision,
-                                final Date _committedDate)
+                                final Long _revision)
     {
-        final AbstractDelta delta = new DeltaDelete(_path, _lastAuthor, _committedRevision, _committedDate);
-        addDelta(delta);
+        final AbstractDelta delta = new DeltaDelete(_path, _revision);
+        this.addDelta(delta);
         return delta;
     }
 
@@ -216,8 +207,7 @@ public class EditorCommandSet
             final List<AbstractElement<?>> params = list.getList().get(1).getList();
             switch (key)  {
                 case OPEN_ROOT:
-                    addDelta(new DeltaRootOpen(params.get(1).getString(),
-                                                    null, null, null));
+                    this.addDelta(new DeltaRootOpen(params));
                     break;
                 case ADD_DIR:
                     final String dirPath = params.get(0).getString();
@@ -225,18 +215,16 @@ public class EditorCommandSet
                     final List<AbstractElement<?>> copyList = params.get(3).getList();
                     // new directory
                     if (copyList.isEmpty())  {
-                        addDelta(new DeltaDirectoryCreate(dirToken, dirPath, null, null, null));
+                        this.addDelta(new DeltaDirectoryCreate(dirToken, dirPath));
                     // directory is copied
                     } else  {
                         final String copyPath = _streams.getSession().extractPathFromURL(copyList.get(0).getString());
                         final long copyRevision = copyList.get(1).getNumber();
-                        addDelta(new DeltaDirectoryCopy(dirToken, dirPath, copyPath, copyRevision, null, null, null));
+                        this.addDelta(new DeltaDirectoryCopy(dirToken, dirPath, copyPath, copyRevision));
                     }
                     break;
                 case OPEN_DIR:
-                    addDelta(new DeltaDirectoryOpen(params.get(2).getString(),
-                                                         params.get(0).getString(),
-                                                         null, null, null));
+                    this.addDelta(new DeltaDirectoryOpen(params));
                     break;
                 case CLOSE_DIR:
                     break;
@@ -244,20 +232,19 @@ public class EditorCommandSet
                     closed = true;
                     break;
                 case ADD_FILE:
-                    addDelta(new DeltaFileCreate(params.get(2).getString(),
-                                                      params.get(0).getString(),
-                                                      null, null, null));
+                    this.addDelta(new DeltaFileCreate(params.get(2).getString(),
+                                                      params.get(0).getString()));
                     break;
                 case OPEN_FILE:
-                    addDelta(new DeltaFileOpen(params.get(2).getString(),
+                    this.addDelta(new DeltaFileOpen(params.get(2).getString(),
                                                     params.get(0).getString(),
                                                     params.get(3).getList().get(0).getNumber()));
                     break;
                 case CHANGE_FILE_PROP:
                     final String cfpToken = params.get(0).getString();
                     final AbstractDelta cfpDelta = this.mapToken2Delta.get(cfpToken);
-                    cfpDelta.addProperty(params.get(1).getString(),
-                                         params.get(2).getList().get(0).getString());
+                    cfpDelta.put(params.get(1).getString(),
+                                 params.get(2).getList().get(0).getString());
                     break;
                 case APPLY_TEXTDELTA:
                     final String apToken = params.get(0).getString();
@@ -285,6 +272,9 @@ public class EditorCommandSet
                     }
                     final AbstractDeltaFile cfDelta = (AbstractDeltaFile) this.mapToken2Delta.get(cfToken);
                     cfDelta.closeFile(cfMD5);
+                    break;
+                case DELETE_ENTRY:
+                    this.addDelta(new DeltaDelete(params));
                     break;
                 default:
                     unknownCommands.add(key.value);

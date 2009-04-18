@@ -22,7 +22,6 @@ package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.util.Date;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
 
@@ -35,17 +34,18 @@ import com.googlecode.jsvnserve.SVNSessionStreams;
 public class DeltaDirectoryCopy
         extends AbstractDeltaDirectory
 {
+    /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = 3507742802264441376L;
+
     DeltaDirectoryCopy(final String _token,
                        final String _path,
                        final String _copiedPath,
-                       final long _copiedRevision,
-                       final String _lastAuthor,
-                       final Long _committedRevision,
-                       final Date _committedDate)
+                       final long _copiedRevision)
     {
         super(_token, _path,
-              _copiedPath, _copiedRevision,
-              _lastAuthor, _committedRevision, _committedDate);
+              _copiedPath, _copiedRevision);
     }
 
     @Override

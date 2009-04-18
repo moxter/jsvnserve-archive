@@ -27,7 +27,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Date;
 
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.internal.delta.SVNDeltaReader;
@@ -47,6 +46,11 @@ import com.googlecode.jsvnserve.api.ServerException;
 public abstract class AbstractDeltaFile
         extends AbstractDelta
 {
+    /**
+     * Serial version UID of this delta class.
+     */
+    private static final long serialVersionUID = 4228000831626825431L;
+
     /**
      * SVN delta reader.
      */
@@ -86,21 +90,14 @@ public abstract class AbstractDeltaFile
      * @param _path             path of the file
      * @param _copiedPath       copied from file with given path
      * @param _copiedRevision   copied from file with given revision
-     * @param _author           committed author of the file
-     * @param _revision         committed revision of the file
-     * @param _date             committed date of the file
      */
     AbstractDeltaFile(final String _token,
                       final String _path,
                       final String _copiedPath,
-                      final Long _copiedRevision,
-                      final String _author,
-                      final Long _revision,
-                      final Date _date)
+                      final Long _copiedRevision)
     {
         super(_token, _path,
-              _copiedPath, _copiedRevision,
-              _author, _revision, _date);
+              _copiedPath, _copiedRevision);
     }
 
     protected void applyTextDelta() throws IOException
