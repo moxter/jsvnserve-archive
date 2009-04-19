@@ -225,7 +225,7 @@ public class SVNSessionStreams
     public void writeFailureStatus(final ServerException _exception)
             throws UnsupportedEncodingException, IOException
     {
-        this.writeFailureStatus(ErrorCode.UNKNOWN, _exception.getMessage());
+        this.writeFailureStatus(_exception.getErrorCode(), _exception.getMessage());
     }
 
 
