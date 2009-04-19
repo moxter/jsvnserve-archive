@@ -104,10 +104,13 @@ import com.googlecode.jsvnserve.util.Timestamp;
 public class Repository
             implements IRepository
 {
+    private final SVNURL baseUrl;
+
     /**
      *
      */
     final SVNRepository svnRepository;
+
     final SVNClientManager clientManager;
 
     /**
@@ -122,18 +125,19 @@ public class Repository
      *
      * @see #getLocationPath()
      */
-    final String rootPath;
+    String location;
 
     public Repository(final SVNURL _svnUrl,
                       final String _user,
                       final String _repositoryPath,
-                      final String _rootPath)
+                      final String _location)
             throws SVNException
     {
+        this.baseUrl = _svnUrl;
         this.repositoryPath = _repositoryPath;
-        this.rootPath = _rootPath;
+        this.location = _location;
         this.clientManager = SVNClientManager.newInstance(null, new BasicAuthenticationManager(_user , _user));
-        this.svnRepository = this.clientManager.createRepository(_svnUrl, false);
+        this.svnRepository = this.clientManager.createRepository(_svnUrl.appendPath(this.location, true), false);
     }
 
         public UUID getUUID()
@@ -155,14 +159,31 @@ public class Repository
         }
 
         /**
-         * Returns the root path of the repository.
+         * Returns the current location path of the repository.
          *
          * @returns repository root path
-         * @see #rootPath
+         * @see #location
          */
         public CharSequence getLocationPath()
         {
-            return this.rootPath;
+            return this.location;
+        }
+
+        /**
+         * Updates current location path within repository.
+         *
+         * @param _newPath  new location path
+         * @see #location
+         */
+        public void setLocationPath(final CharSequence _newPath)
+        {
+            this.location = _newPath.toString();
+            try {
+                this.svnRepository.setLocation(this.baseUrl.appendPath(_newPath.toString(), false), false);
+            } catch (final SVNException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
         }
 
         /**
@@ -503,6 +524,7 @@ System.out.println("temp="+temp);
                                                null);
                     dirEntry = DirEntry.createFile(_path.toString(), null, null, null, 0, null);
                 }
+System.out.println("nodeKind="+nodeKind);
 
                 if (dirEntry != null)  {
                     for (final Map.Entry<String,SVNPropertyValue> entry
@@ -726,7 +748,7 @@ System.out.println("temp="+temp);
 try {
     // TODO: path could not start with / (why?)
     this.svnRepository.status((_revision != null) ? _revision : -1,
-                              _path.substring(1),
+                              _path,
                               svnDepth,
                               new ISVNReporterBaton()  {
 
