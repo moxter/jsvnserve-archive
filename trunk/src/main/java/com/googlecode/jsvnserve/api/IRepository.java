@@ -28,6 +28,7 @@ import java.util.UUID;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.filerevisions.FileRevisionsList;
 import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.api.properties.Revision0PropertyValues;
 import com.googlecode.jsvnserve.api.properties.RevisionPropertyValues;
@@ -154,6 +155,28 @@ public interface IRepository
      */
     public InputStream getFile(final Long _revision,
                                final CharSequence _path);
+
+    /**
+     * <p>Returns interesting file revisions for the specified file.</p>
+     * <p>The list of interesting file revisions are represented by an instance
+     * of {@link FileRevisionsList}. The list of file revisions must only
+     * include those revisions in which the file was changed (e.g. file content
+     * or file properties).</p>
+     *
+     * @param _path         path of the file
+     * @param _startRev     revision to start from
+     * @param _endRev       revision to end at
+     * @param _mergeInfo    if <i>true</i> merged revision must be also
+     *                      included
+     * @return list of interesting file revisions
+     * @throws ServerException if interesting file revisions could not be
+     *                         returned
+     */
+    public FileRevisionsList getFileRevs(final String _path,
+                                         final long _startRev,
+                                         final long _endRev,
+                                         final boolean _mergeInfo)
+            throws ServerException;
 
     /**
      * Lock given file paths (depending on the revisions).

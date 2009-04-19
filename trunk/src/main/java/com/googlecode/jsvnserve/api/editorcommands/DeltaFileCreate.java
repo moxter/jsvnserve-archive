@@ -21,17 +21,11 @@
 package com.googlecode.jsvnserve.api.editorcommands;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
 
-import org.tmatesoft.svn.core.SVNErrorMessage;
-import org.tmatesoft.svn.core.SVNException;
-import org.tmatesoft.svn.core.io.ISVNDeltaConsumer;
-import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
-import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
-
 import com.googlecode.jsvnserve.SVNSessionStreams;
+import com.googlecode.jsvnserve.SVNSessionStreams.DeltaOutputStream;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
@@ -82,66 +76,29 @@ public class DeltaFileCreate
 
         _streams.writeItemList(new ListElement(Word.APPLY_TEXTDELTA, new ListElement(this.getToken(), new ListElement())));
 
-        SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
-        String md5 = "";
-        try {
-            md5 = deltaGenerator.sendDelta(this.getToken(),
-                    _streams.getSession().getRepository().getFile(_targetRevision, this.getPath()),
-                    new ISVNDeltaConsumer() {
-                        boolean writeHeader = true;
-
-                        public void applyTextDelta(String s, String s1)
-                        {
-                        }
-
-                        public OutputStream textDeltaChunk(final String s,
-                                final SVNDiffWindow svndiffwindow) throws SVNException
-                        {
-
-                            OutputStream out = new OutputStream() {
-                                @Override
-                                public void write(byte b[], int off, int len) throws IOException {
-        _streams.traceWrite("( textdelta-chunk ( 2:{} ( {}:... ) ) ) ", DeltaFileCreate.this.getToken(), len);
-        _streams.writeWithoutFlush("( textdelta-chunk ( ");
-        _streams.writeWithoutFlush(String.valueOf(DeltaFileCreate.this.getToken().length()));
-        _streams.writeWithoutFlush(':');
-        _streams.writeWithoutFlush(DeltaFileCreate.this.getToken());
-        _streams.writeWithoutFlush(' ');
-        _streams.writeWithoutFlush(String.valueOf(len));
-        _streams.writeWithoutFlush(':');
-        _streams.writeWithoutFlush(b, off, len);
-        _streams.writeWithoutFlush(" ) ) ");
-                                }
-
-                                @Override
-                                public void write(byte[] b) throws IOException {
-                                    write(b, 0, b.length);
-                                }
-
-                                @Override
-                                public void write(int b) throws IOException {
-                                    write(new byte[]{(byte) (b & 0xFF)});
-                                }
-                            };
-
-                            try {
-                                svndiffwindow.writeTo(out, this.writeHeader, true);
-                            } catch (final IOException e) {
-                                throw new SVNException(SVNErrorMessage.UNKNOWN_ERROR_MESSAGE, e);
-                            }
-                            this.writeHeader = false;
-                            return null;
-                        }
-
-                        public void textDeltaEnd(String s) throws SVNException
-                        {
-                        }
-            },
-                    true);
-        } catch (SVNException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        final String md5 = _streams.writeFileDelta(
+                null,
+                _streams.getSession().getRepository().getFile(_targetRevision, this.getPath()),
+                new DeltaOutputStream() {
+                    @Override
+                    public void write(final byte _bytes[],
+                                      final int _offset,
+                                      final int _len)
+                    throws IOException
+                    {
+                        _streams.traceWrite("( textdelta-chunk ( 2:{} ( {}:... ) ) ) ", DeltaFileCreate.this.getToken(), _len);
+                        _streams.writeWithoutFlush("( textdelta-chunk ( ");
+                        _streams.writeWithoutFlush(String.valueOf(DeltaFileCreate.this.getToken().length()));
+                        _streams.writeWithoutFlush(':');
+                        _streams.writeWithoutFlush(DeltaFileCreate.this.getToken());
+                        _streams.writeWithoutFlush(' ');
+                        _streams.writeWithoutFlush(String.valueOf(_len));
+                        _streams.writeWithoutFlush(':');
+                        _streams.writeWithoutFlush(_bytes, _offset, _len);
+                        _streams.writeWithoutFlush(" ) ) ");
+                    }
+                },
+                true);
 
         _streams.writeItemList(
                 new ListElement(Word.TEXTDELTA_END, new ListElement(this.getToken())),

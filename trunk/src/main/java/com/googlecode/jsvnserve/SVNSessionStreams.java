@@ -32,6 +32,12 @@ import javax.security.sasl.SaslServer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.tmatesoft.svn.core.SVNErrorMessage;
+import org.tmatesoft.svn.core.SVNException;
+import org.tmatesoft.svn.core.internal.wc.SVNFileUtil;
+import org.tmatesoft.svn.core.io.ISVNDeltaConsumer;
+import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
+import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 
 import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
@@ -255,6 +261,62 @@ public class SVNSessionStreams
         this.out.write(_byte);
     }
 
+    /**
+     *
+     * @param _source       input stream from the original file
+     * @param _target       target stream from the file for which the delta to
+     *                      the <code>_source</code> must be computed
+     * @param _output
+     * @param _computeMD5   <i>true</i> means that the MD5 checksum is computed
+     * @return if <code>_computeMD5</code> is <i>true</i> the MD5 checksum is
+     *         returned; otherwise <code>null</code> is returned
+     * @see DelteOutputStream
+     */
+    public String writeFileDelta(final InputStream _source,
+                                 final InputStream _target,
+                                 final DeltaOutputStream _output,
+                                 final boolean _computeMD5)
+    {
+        String md5 = null;
+        SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
+        try {
+            md5 = deltaGenerator.sendDelta(
+                    "",
+                    (_source == null) ? SVNFileUtil.DUMMY_IN : _source,
+                    0,
+                    _target,
+                    new ISVNDeltaConsumer() {
+                        boolean writeHeader = true;
+
+                        public void applyTextDelta(String s, String s1)
+                        {
+                        }
+
+                        public OutputStream textDeltaChunk(final String s,
+                                final SVNDiffWindow svndiffwindow) throws SVNException
+                        {
+                            try {
+                                svndiffwindow.writeTo(_output, this.writeHeader, true);
+                            } catch (final IOException e) {
+                                throw new SVNException(SVNErrorMessage.UNKNOWN_ERROR_MESSAGE, e);
+                            }
+                            this.writeHeader = false;
+                            return null;
+                        }
+
+                        public void textDeltaEnd(String s)
+                        {
+                        }
+                    },
+                    _computeMD5);
+        } catch (final SVNException ex) {
+            // TODO Auto-generated catch block
+            ex.printStackTrace();
+        }
+        return md5;
+    }
+
+
     public void flush()
             throws IOException
     {
@@ -341,6 +403,33 @@ public class SVNSessionStreams
 
             this.out = new SaslOutputStream(_saslServer, outBuffSize, this.out);
             this.in = new SaslInputStream(_saslServer, inBuffSize, this.in);
+        }
+    }
+
+    /**
+     * @see SVNSessionStreams#writeFileDelta(InputStream, InputStream, DeltaOutputStream, boolean)
+     */
+    public static abstract class DeltaOutputStream
+            extends OutputStream
+    {
+        @Override
+        public abstract void write(final byte _bytes[],
+                                   final int _offset,
+                                   final int _len)
+                throws IOException;
+
+        @Override
+        public void write(final byte[] _bytes)
+                throws IOException
+        {
+            write(_bytes, 0, _bytes.length);
+        }
+
+        @Override
+        public void write(final int _byte)
+                throws IOException
+        {
+            write(new byte[]{(byte) (_byte & 0xFF)});
         }
     }
 }
