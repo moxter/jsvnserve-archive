@@ -58,6 +58,7 @@ import com.googlecode.jsvnserve.api.LogEntryList.ChangedPath;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
 import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.filerevisions.FileRevisionsList;
 import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.api.properties.Properties.PropertyKey;
 import com.googlecode.jsvnserve.element.AbstractElement;
@@ -290,6 +291,7 @@ public class SVNServerSession
                         case COMMIT:            this.svnCommit(items.getList().get(1).getList());break;
                         case GET_DIR:           this.svnGetDir(items.getList().get(1).getList());break;
                         case GET_FILE:          this.svnGetFile(items.getList().get(1).getList());break;
+                        case GET_FILE_REVS:     this.svnGetFileRevs(items.getList().get(1).getList());break;
                         case GET_LATEST_REV:    this.svnGetLatestRev();break;
                         case GET_LOCATIONS:     this.svnGetLocations(items.getList().get(1).getList());break;
                         case GET_LOCK:          this.svnGetLock(items.getList().get(1).getList());break;
@@ -1481,7 +1483,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         }
 
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
-        this.streams.writeItemList(list.toArray(new ListElement[list.size()]));
+        this.streams.writeItemList(list);
         this.streams.write("done ( success ( ) ) ");
     }
 
@@ -1535,6 +1537,75 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         entries.write(this.streams);
 
         this.streams.writeItemList(SVNServerSession.EMPTY_SUCCESS);
+    }
+
+    /**
+     * Returns interesting file revisions for the specified file.
+     *
+     * <p><b>SVN Call from Client:</b></br>
+     * <table>
+     * <tr><td><code style="color:green"><nobr>( get-file-revs (</nobr></code>
+     *     </td></tr>
+     * <tr><td  rowspan="4"></td><td><code style="color:green">
+     *     path:<a href="#string">string</a></code></td>
+     *     <td>file path</td></tr>
+     * <tr><td><code style="color:green">
+     *     ( start-rev:<a href="#number">number</a> )</code></td>
+     *     <td>revision to start from</td></tr>
+     * <tr><td><code style="color:green">
+     *     ( end-rev:<a href="#number">number</a> )</code></td>
+     *     <td>revision to end at</td></tr>
+     * <tr><td><code style="color:green">
+     *     ?include-merged-revisions:<a href="#bool">bool</a></td>
+     *     <td>must be information about merged revision included?</td>
+     * <tr><td><code style="color:green">) )</code></td></tr>
+     * </table></p>
+     *
+     * <p><b>SVN Authentication between Server and Client:</b><br/>
+     * First the user authentication is done (if required, because optional).
+     * </p>
+     *
+     * <p><b>File Revisions</b><br/>
+     * The SVN server send all interesting file revisions including file
+     * content to the client (see
+     * {@link FileRevisionsList#write(SVNSessionStreams)}).</p>
+     *
+     * <p><b>Response</b><br/>
+     * In the case of no error, an empty success is written. Otherwise a
+     * failure status is returned.<p/>
+     *
+     * @param _parameters   parameters for the get file revisions from the SVN
+     *                      client
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    protected void svnGetFileRevs(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException
+    {
+        // path
+        final String path = this.buildPath(_parameters.get(0).getString());
+        // start revision number
+        final long startRev = _parameters.get(1).getList().get(0).getNumber();
+        final long endRev = _parameters.get(2).getList().get(0).getNumber();
+        // include merged info?
+        final boolean mergedInfo = (_parameters.get(3).getWord() == Word.BOOLEAN_TRUE);
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        ServerException exception = null;
+        FileRevisionsList revList = null;
+        try {
+            revList = this.repository.getFileRevs(path, startRev, endRev, mergedInfo);
+        } catch (final ServerException ex) {
+            exception = ex;
+        }
+
+        if (exception != null)  {
+            this.streams.writeFailureStatus(exception);
+        } else  {
+            revList.write(this.streams);
+            this.streams.writeSuccessStatus();
+        }
     }
 
     /**

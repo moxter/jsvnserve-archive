@@ -163,6 +163,17 @@ public abstract class AbstractDeltaFile
     }
 
     /**
+     * Returns <i> if the content of the file was changed.
+     *
+     * @return <i>true</i> if content of file was changed; otherwise
+     *         <i>false</i>
+     */
+    public boolean isContentChanged()
+    {
+        return this.file != null;
+    }
+
+    /**
      *
      * @return input stream of the complete file
      * @see #in

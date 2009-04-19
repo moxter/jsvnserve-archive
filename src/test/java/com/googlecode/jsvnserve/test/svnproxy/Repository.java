@@ -51,10 +51,12 @@ import org.tmatesoft.svn.core.SVNPropertyValue;
 import org.tmatesoft.svn.core.SVNURL;
 import org.tmatesoft.svn.core.auth.BasicAuthenticationManager;
 import org.tmatesoft.svn.core.io.ISVNEditor;
+import org.tmatesoft.svn.core.io.ISVNFileRevisionHandler;
 import org.tmatesoft.svn.core.io.ISVNLocationEntryHandler;
 import org.tmatesoft.svn.core.io.ISVNLockHandler;
 import org.tmatesoft.svn.core.io.ISVNReporter;
 import org.tmatesoft.svn.core.io.ISVNReporterBaton;
+import org.tmatesoft.svn.core.io.SVNFileRevision;
 import org.tmatesoft.svn.core.io.SVNLocationEntry;
 import org.tmatesoft.svn.core.io.SVNRepository;
 import org.tmatesoft.svn.core.io.diff.SVNDeltaGenerator;
@@ -87,6 +89,8 @@ import com.googlecode.jsvnserve.api.editorcommands.DeltaFileCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaFileOpen;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaRootOpen;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.filerevisions.FileRevision;
+import com.googlecode.jsvnserve.api.filerevisions.FileRevisionsList;
 import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.api.properties.Revision0PropertyValues;
 import com.googlecode.jsvnserve.api.properties.RevisionPropertyValues;
@@ -233,12 +237,24 @@ public class Repository
                                                       entry.getKey(),
                                                       SVNPropertyValue.create(entry.getValue()));
                         }
+                        if (fileOpen.isContentChanged())  {
+                            editor.applyTextDelta(fileOpen.getPath(), null);
+                            SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
+                            String checksum = deltaGenerator.sendDelta(delta.getPath(), fileOpen.getInputStream(), editor, true);
+                        }
                     } else if (delta instanceof DeltaFileCreate)  {
-final AbstractDeltaFile fileDelta = (AbstractDeltaFile) delta;
-editor.addFile(delta.getPath(), null, -1);
-editor.applyTextDelta(delta.getPath(), null);
-SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
-String checksum = deltaGenerator.sendDelta(delta.getPath(), fileDelta.getInputStream(), editor, true);
+                        final DeltaFileCreate fileCreate = (DeltaFileCreate) delta;
+                        editor.addFile(fileCreate.getPath(), null, -1);
+                        for (final Map.Entry<String,String> entry : fileCreate.entrySet())  {
+                            editor.changeFileProperty(fileCreate.getPath(),
+                                                      entry.getKey(),
+                                                      SVNPropertyValue.create(entry.getValue()));
+                        }
+                        if (fileCreate.isContentChanged())  {
+                            editor.applyTextDelta(fileCreate.getPath(), null);
+                            SVNDeltaGenerator deltaGenerator = new SVNDeltaGenerator();
+                            String checksum = deltaGenerator.sendDelta(delta.getPath(), fileCreate.getInputStream(), editor, true);
+                        }
                     } else if (delta instanceof DeltaDelete)  {
                         final DeltaDelete delete = (DeltaDelete) delta;
                         editor.deleteEntry(delete.getPath(),
@@ -401,6 +417,66 @@ System.out.println("temp="+temp);
             }
             return null;
         }
+
+    public FileRevisionsList getFileRevs(final String _path,
+                                         final long _startRev,
+                                         final long _endRev,
+                                         final boolean _mergeInfo)
+            throws ServerException
+    {
+        final FileRevisionsList revList = new FileRevisionsList();
+        try {
+            this.svnRepository.getFileRevisions(_path, _startRev, _endRev, _mergeInfo,
+                    new ISVNFileRevisionHandler() {
+
+                        private SVNFileRevision svnFileRevision;
+
+                        private boolean contentModified;
+
+                        @SuppressWarnings("unchecked")
+                        public void closeRevision(String _path)
+                        {
+                            final FileRevision fileRevision = new FileRevision(this.svnFileRevision.getRevision(),
+                                                                               this.svnFileRevision.getPath(),
+                                                                               this.contentModified,
+                                                                               this.svnFileRevision.isResultOfMerge());
+                            revList.add(fileRevision);
+                            for (final Map.Entry<String,SVNPropertyValue> entry
+                                    : ((Map<String,SVNPropertyValue>) this.svnFileRevision.getRevisionProperties().asMap()).entrySet())  {
+                                fileRevision.getRevisionProperties().put(entry.getKey(), entry.getValue().getString());
+                            }
+                            for (final Map.Entry<String,SVNPropertyValue> entry
+                                    : ((Map<String,SVNPropertyValue>) this.svnFileRevision.getPropertiesDelta().asMap()).entrySet())  {
+                                fileRevision.getFileDeltaProperties().put(entry.getKey(), entry.getValue().getString());
+                            }
+                            this.svnFileRevision = null;
+                            this.contentModified = false;
+                        }
+
+                        public void openRevision(SVNFileRevision _svnFileRevision)
+                        {
+                            this.svnFileRevision = _svnFileRevision;
+                        }
+
+                        public void applyTextDelta(String s, String s1)
+                        {
+                           this.contentModified = true;
+                        }
+
+                        public OutputStream textDeltaChunk(String s, SVNDiffWindow svndiffwindow)
+                        {
+                            return null;
+                        }
+
+                        public void textDeltaEnd(String s)
+                        {
+                        }
+                });
+        } catch (final SVNException e) {
+            throw new ServerException(e.getMessage(), e);
+        }
+        return revList;
+    }
 
         public DirEntry stat(final Long _revision,
                              final CharSequence _path,

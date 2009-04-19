@@ -102,7 +102,7 @@ public class SimpleTests
      * @throws SAXException
      * @see #REV1_LOG
      */
-    @Test(timeOut = 10000)
+    @Test(dependsOnMethods = {"testNotExistingRepositoryPath", "testFailedUserAutentication"}, timeOut = 10000)
     public void createDirectory()
             throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
     {
@@ -186,7 +186,7 @@ public class SimpleTests
         final File file = new File(this.getWCPath(), "temp1/file1.txt");
         final OutputStream out = new FileOutputStream(file);
         final String text = "This is the file '" + file.getName() + "'.\n";
-        out.write(("This is the file '" + file.getName() + "'.\n").getBytes());
+        out.write(text.getBytes());
         out.close();
         this.execute(false, "add", "temp1/file1.txt");
         this.execute(true, "--message", "My Message", "commit");
@@ -222,7 +222,7 @@ public class SimpleTests
      * @throws IOException
      * @throws ExecuteException
      */
-    @Test(dependsOnMethods = "createDirectory", timeOut = 10000)
+    @Test(dependsOnMethods = {"createDirectory", "propListRev0"}, timeOut = 10000)
     public void propListRev1()
             throws InterruptedException, IOException, ExecuteException
     {
@@ -256,7 +256,7 @@ public class SimpleTests
      * @throws ParserConfigurationException
      * @throws SAXException
      */
-    @Test(dependsOnMethods = "createFile", timeOut = 10000)
+    @Test(dependsOnMethods = {"createFile", "propGetLogRev1"}, timeOut = 10000)
     public void setFileProperty()
             throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
     {
@@ -424,5 +424,36 @@ public class SimpleTests
         Assert.assertTrue(!logEntry.paths.isEmpty(), "last commit had one directory modified");
         Assert.assertEquals((String) logEntry.paths.keySet().toArray()[0], "/temp3");
         Assert.assertEquals(this.execute(true, "propget", "test-property", this.getRepositoryURL() + "/temp3"), "test-value", "check property value");
+    }
+
+    /**
+     * Updates file &quot;temp1/file1.text&quot; and commits.
+     *
+     * @throws IOException
+     * @throws InterruptedException
+     * @throws ExecuteException
+     * @throws ParserConfigurationException
+     * @throws SAXException
+     */
+    @Test(dependsOnMethods = {"setTemp3DirProperty", "setFileProperty", "testFilePropertyOnNonExisting"}, timeOut = 10000)
+    public void updateFile()
+            throws IOException, InterruptedException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        final File file = new File(this.getWCPath(), "temp1/file1.txt");
+        final OutputStream out = new FileOutputStream(file);
+        final String text = "This is the file '" + file.getName() + "'.\nBut now updated\n";
+        out.write(text.getBytes());
+        out.close();
+        this.execute(true, "--message", "Update file", "commit");
+        final Map<Long,LogEntry> log = this.readLog();
+        final long lastRev = (Long) log.keySet().toArray()[log.size() - 1];
+        final LogEntry logEntry = log.get(lastRev);
+        Assert.assertEquals((String) logEntry.paths.keySet().toArray()[0], "/temp1/file1.txt", "test that file is updated");
+        final String[] lines = this.execute(true, "blame", "temp1/file1.txt").split("\n");
+        Assert.assertEquals(lines.length, 2);
+        Assert.assertTrue(lines[0].startsWith("4 "));
+        Assert.assertTrue(lines[0].trim().endsWith("This is the file 'file1.txt'."));
+        Assert.assertTrue(lines[1].trim().startsWith("10 "));
+        Assert.assertTrue(lines[1].endsWith("But now updated"));
     }
 }
