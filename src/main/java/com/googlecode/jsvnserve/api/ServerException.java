@@ -56,6 +56,8 @@ public class ServerException
 
         SVN_ERR_FS_NOT_FOUND(SVN_ERR_FS_CATEGORY_START + 13, "Filesystem has no item"),
 
+        SVN_ERR_FS_NOT_DIRECTORY(SVN_ERR_FS_CATEGORY_START + 16, "Name does not refer to a filesystem directory"),
+
         /** @since New in 1.2. */
 //        SVN_ERR_FS_PATH_ALREADY_LOCKED(SVN_ERR_FS_CATEGORY_START + 35, "Path is already locked"),
 
@@ -98,7 +100,7 @@ public class ServerException
         }
     }
 
-    public final ErrorCode errorCode;
+    private final ErrorCode errorCode;
 
     public ServerException(final ErrorCode _errorCode)
     {
@@ -106,16 +108,49 @@ public class ServerException
         this.errorCode = _errorCode;
     }
 
+    protected ServerException(final ErrorCode _errorCode,
+                              final String _message)
+    {
+        super(_message);
+        this.errorCode = _errorCode;
+    }
+
+    protected ServerException(final ErrorCode _errorCode,
+                              final String _message,
+                              final Exception _cause)
+    {
+        super(_message, _cause);
+        this.errorCode = _errorCode;
+    }
+
+    protected ServerException(final ErrorCode _errorCode,
+                              final Exception _cause)
+    {
+        super(_cause.getMessage(), _cause);
+        this.errorCode = _errorCode;
+    }
+
     public ServerException(final String _message)
     {
         super(_message);
-        this.errorCode = null;
+        this.errorCode = ErrorCode.UNKNOWN;
     }
 
     public ServerException(final String _message,
                            final Exception _cause)
     {
         super(_message, _cause);
-        this.errorCode = null;
+        this.errorCode = ErrorCode.UNKNOWN;
+    }
+
+    /**
+     * Returns the SVN error code as item of enumeration {@link ErrorCode}.
+     *
+     * @return SVN error code as enumeration item
+     * @see #errorCode
+     */
+    public ErrorCode getErrorCode()
+    {
+        return errorCode;
     }
 }

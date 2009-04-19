@@ -71,6 +71,7 @@ import com.googlecode.jsvnserve.api.IRepository;
 import com.googlecode.jsvnserve.api.LocationEntries;
 import com.googlecode.jsvnserve.api.LockDescriptionList;
 import com.googlecode.jsvnserve.api.LogEntryList;
+import com.googlecode.jsvnserve.api.OtherServerException;
 import com.googlecode.jsvnserve.api.ReportList;
 import com.googlecode.jsvnserve.api.ServerException;
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
@@ -78,6 +79,7 @@ import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
 import com.googlecode.jsvnserve.api.ReportList.AbstractCommand;
 import com.googlecode.jsvnserve.api.ReportList.DeletePath;
 import com.googlecode.jsvnserve.api.ReportList.SetPath;
+import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDelta;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaDirectory;
 import com.googlecode.jsvnserve.api.editorcommands.AbstractDeltaFile;
@@ -88,7 +90,9 @@ import com.googlecode.jsvnserve.api.editorcommands.DeltaDirectoryOpen;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaFileCreate;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaFileOpen;
 import com.googlecode.jsvnserve.api.editorcommands.DeltaRootOpen;
+import com.googlecode.jsvnserve.api.editorcommands.DirectoryNotExistsException;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.editorcommands.FileNotExistsException;
 import com.googlecode.jsvnserve.api.filerevisions.FileRevision;
 import com.googlecode.jsvnserve.api.filerevisions.FileRevisionsList;
 import com.googlecode.jsvnserve.api.properties.Properties;
@@ -199,7 +203,7 @@ public class Repository
                                  final boolean _keepLocks,
                                  final Properties _revisionProps,
                                  final EditorCommandSet _editor)
-                throws ServerException
+                throws DirectoryNotExistsException, FileNotExistsException, OtherServerException
         {
             CommitInfo commitInfo = null;
 
@@ -282,7 +286,7 @@ public class Repository
                                            (delete.getRevision() == null) ? -1 : delete.getRevision());
                     } else  {
                         editor.abortEdit();
-                        throw new ServerException("class '" + delta.getClass() + "' not supported for commit!");
+                        throw new OtherServerException("class '" + delta.getClass() + "' not supported for commit!");
                     }
                 }
                 while (!stack.empty())  {
@@ -301,7 +305,14 @@ public class Repository
                                             svnCommitInfo.getAuthor(),
                                             svnCommitInfo.getDate());
             } catch (final SVNException e) {
-                throw new ServerException(e.getMessage(), e);
+                final int errorCode = e.getErrorMessage().getErrorCode().getCode();
+                if (errorCode == ErrorCode.SVN_ERR_FS_NOT_FOUND.code)  {
+                    throw new FileNotExistsException("PATH");
+                }
+                if (errorCode == ErrorCode.SVN_ERR_FS_NOT_DIRECTORY.code)  {
+                    throw new DirectoryNotExistsException("PATH");
+                }
+                throw new OtherServerException(e);
             }
 
             return commitInfo;

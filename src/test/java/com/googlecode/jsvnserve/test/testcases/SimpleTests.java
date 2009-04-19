@@ -468,7 +468,7 @@ public class SimpleTests
      * @throws ParserConfigurationException
      */
     @Test(dependsOnMethods = "updateFile", timeOut = 10000)
-    public void testCreateDirWithParentDir()
+    public void createDirWithParentDir()
             throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
     {
         this.execute(true, "--message", "create directory", "--parents", "mkdir", this.getRepositoryURL() + "/u1/v1");
@@ -476,5 +476,25 @@ public class SimpleTests
         Assert.assertEquals(entries.size(), 11);
         Assert.assertTrue(entries.containsKey("u1"));
         Assert.assertTrue(entries.containsKey("u1/v1"));
+    }
+
+    /**
+     * Tests, that the create of a new directory without existing parent
+     * directory failed and the returned exception includes, that parameter
+     * '--parents' should be used.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     */
+    @Test(dependsOnMethods = "createDirWithParentDir", timeOut = 10000)
+    public void testCreateDirWithoutParentDir()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        try  {
+            this.execute(true, "--message", "create directory", "mkdir", this.getRepositoryURL() + "/u2/v2");
+        } catch (final ExecuteException ex)  {
+            Assert.assertTrue(ex.getMessage().contains("svn: Try 'svn mkdir --parents' instead?"));
+        }
     }
 }

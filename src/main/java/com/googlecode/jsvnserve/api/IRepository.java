@@ -27,7 +27,9 @@ import java.util.UUID;
 
 import com.googlecode.jsvnserve.api.LockDescriptionList.LockDescription;
 import com.googlecode.jsvnserve.api.LogEntryList.LogEntry;
+import com.googlecode.jsvnserve.api.editorcommands.DirectoryNotExistsException;
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.api.editorcommands.FileNotExistsException;
 import com.googlecode.jsvnserve.api.filerevisions.FileRevisionsList;
 import com.googlecode.jsvnserve.api.properties.Properties;
 import com.googlecode.jsvnserve.api.properties.Revision0PropertyValues;
@@ -127,14 +129,20 @@ public interface IRepository
      *                          <i>false</i> to release all locks after commit
      * @param _revisionProps    custom specific revision properties
      * @param _editor           editor command set
-     * @throws ServerException if commit failed
+     * @throws DirectoryNotExistsException  if a directory in the editor
+     *                                      command set <code>_editor</code>
+     *                                      does not exists
+     * @throws FileNotExistsException       if a file in the editor command set
+     *                                      <code>_editor</code> does not
+     *                                      exists
+     * @throws OtherServerException         if commit failed in all other cases
      */
     public CommitInfo commit(final String _logMessage,
                              final Map<String,String> _locks,
                              final boolean _keepLocks,
                              final Properties _revisionProps,
                              final EditorCommandSet _editor)
-            throws ServerException;
+            throws DirectoryNotExistsException, FileNotExistsException, OtherServerException;
 
     /**
      *

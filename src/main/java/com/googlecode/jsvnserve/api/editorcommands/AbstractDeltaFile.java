@@ -35,7 +35,7 @@ import org.tmatesoft.svn.core.io.ISVNDeltaConsumer;
 import org.tmatesoft.svn.core.io.diff.SVNDeltaProcessor;
 import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 
-import com.googlecode.jsvnserve.api.ServerException;
+import com.googlecode.jsvnserve.api.OtherServerException;
 
 /**
  * Handles all file commands from the editor command set
@@ -178,17 +178,17 @@ public abstract class AbstractDeltaFile
      * @return input stream of the complete file
      * @see #in
      */
-    public InputStream getInputStream() throws ServerException
+    public InputStream getInputStream() throws OtherServerException
     {
         if (this.in != null)  {
 // TODO: i18n
-throw new ServerException("File was already opened!");
+throw new OtherServerException("File was already opened!");
         }
         try {
             this.in = new FileInputStream(this.file);
         } catch (final FileNotFoundException ex) {
 // TODO: i18n
-throw new ServerException("temporary file '" + this.file + "' not found");
+throw new OtherServerException("temporary file '" + this.file + "' not found");
         }
         return this.in;
     }
