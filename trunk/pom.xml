@@ -69,24 +69,34 @@
             <version>1.3</version>
             <scope>compile</scope>
         </dependency>
+        
+        <!-- handling of files and file delta -->
         <dependency>
             <groupId>org.tmatesoft.svnkit</groupId>
             <artifactId>svnkit</artifactId>
-            <version>1.2.3.5521</version>
-            <scope>compile</scope>
+            <version>1.3.0.5726</version>
+            <!-- to support SVN 1.6 features the SVN kit is used as beta  -->
+            <!-- scope>compile</scope -->
+            <scope>system</scope>
+            <systemPath>${basedir}/lib/svnkit-1.3.0Beta-Build213.jar</systemPath>
         </dependency>
+        
+        <!--  for logging purposes -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.5.6</version>
             <scope>compile</scope>
         </dependency>
-        <!--dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>1.5.6</version>
+
+        <!-- Apache commons lang used for toString methods -->
+        <dependency>
+            <groupId>commons-lang</groupId>
+            <artifactId>commons-lang</artifactId>
+            <version>2.4</version>
             <scope>compile</scope>
-        </dependency-->
+        </dependency>
+
         <dependency>
             <groupId>com.jcraft</groupId>
             <artifactId>jzlib</artifactId>
@@ -103,6 +113,8 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        
+        <!-- logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>jcl-over-slf4j</artifactId>
@@ -127,6 +139,7 @@
             <scope>test</scope>
             <classifier>jdk15</classifier>
         </dependency>
+        
     </dependencies>
 
     <build>
