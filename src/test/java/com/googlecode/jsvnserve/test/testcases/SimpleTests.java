@@ -456,4 +456,25 @@ public class SimpleTests
         Assert.assertTrue(lines[1].trim().startsWith("10 "));
         Assert.assertTrue(lines[1].endsWith("But now updated"));
     }
+
+    /**
+     * Tries to create a directory without existing parent directory (via
+     * svn mkdir --parent). This tests if the reparent command works correct.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     * @throws SAXException
+     * @throws ParserConfigurationException
+     */
+    @Test(dependsOnMethods = "updateFile", timeOut = 10000)
+    public void testCreateDirWithParentDir()
+            throws InterruptedException, IOException, ExecuteException, ParserConfigurationException, SAXException
+    {
+        this.execute(true, "--message", "create directory", "--parents", "mkdir", this.getRepositoryURL() + "/u1/v1");
+        final Map<String,DirEntry> entries = this.readDir();
+        Assert.assertEquals(entries.size(), 11);
+        Assert.assertTrue(entries.containsKey("u1"));
+        Assert.assertTrue(entries.containsKey("u1/v1"));
+    }
 }

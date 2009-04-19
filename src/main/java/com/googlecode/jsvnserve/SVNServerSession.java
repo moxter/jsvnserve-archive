@@ -199,11 +199,6 @@ public class SVNServerSession
     private final CallbackHandler callbackHandler;
 
     /**
-     * Current root path. Could be changed from the SVN client.
-     */
-    private String currentPath = "/";
-
-    /**
      *
      * @param _in                   input stream
      * @param _out                  output stream
@@ -857,7 +852,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
     protected void svnGetFile(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
         final boolean wantsProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE ? true : false;
         final boolean wantsContent = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE ? true : false;
@@ -975,7 +970,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
     protected void svnGetDir(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
         final boolean wantProps = _parameters.get(2).getWord() == Word.BOOLEAN_TRUE;
         final boolean wantContents = _parameters.get(3).getWord() == Word.BOOLEAN_TRUE;
@@ -1076,7 +1071,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
             throws UnsupportedEncodingException, IOException
     {
         // get path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         // get revision
         final List<AbstractElement<?>> revParams = _parameters.get(1).getList();
         final Long revision;
@@ -1138,7 +1133,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
     protected void svnStat(final List<AbstractElement<?>> _parameters)
            throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
 
         DirEntry entry = null;
@@ -1225,7 +1220,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
         final long revision = (revisionParams.isEmpty()) ? -1 : revisionParams.get(0).getNumber();
         // update path
-        final String path = this.buildPath(_parameters.get(1).getString());
+        final String path = _parameters.get(1).getString();
         // recurse?
         final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
         // depth and send copy from parameters
@@ -1310,7 +1305,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             throws UnsupportedEncodingException, IOException
     {
         // status path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         // recurse?
         final boolean recurse = (_parameters.get(1).getWord() == Word.BOOLEAN_TRUE);
         // revision number
@@ -1442,7 +1437,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
         final String[] paths = new String[pathParameters.size()];
         int idx = 0;
         for (final AbstractElement<?> pathParameter : pathParameters)  {
-            paths[idx] = this.buildPath(pathParameter.getString());
+            paths[idx] = pathParameter.getString();
             idx++;
         }
 
@@ -1520,7 +1515,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             throws UnsupportedEncodingException, IOException
     {
         // location path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         // peg revision number
         final long pegRevision = _parameters.get(1).getNumber();
         // interesting revisions
@@ -1583,7 +1578,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
             throws UnsupportedEncodingException, IOException
     {
         // path
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
         // start revision number
         final long startRev = _parameters.get(1).getList().get(0).getNumber();
         final long endRev = _parameters.get(2).getList().get(0).getNumber();
@@ -1798,7 +1793,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     protected void svnGetLock(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
 
         final LockDescription lockDesc = this.getRepository().getFileLock(path);
 
@@ -1849,7 +1844,7 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     protected void svnGetLocks(final List<AbstractElement<?>> _parameters)
             throws UnsupportedEncodingException, IOException
     {
-        final String path = this.buildPath(_parameters.get(0).getString());
+        final String path = _parameters.get(0).getString();
 
         final LockDescriptionList lockDescList = this.getRepository().getLocks(path);
 
@@ -1894,28 +1889,12 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     {
         final URI uri = new URI(_parameters.get(0).getString());
         final String path = "".equals(uri.getPath()) ? "/" : uri.getPath();
+        final String location = path.substring(this.repository.getRepositoryPath().length());
 
-        this.currentPath = path.substring(this.repository.getLocationPath().length()
-                                                  + this.repository.getRepositoryPath().length());
+        this.repository.setLocationPath("".equals(location) ? "/" : location);
+
         this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED,
                                    new ListElement(Word.STATUS_SUCCESS, new ListElement()));
-    }
-
-    /**
-     *
-     *
-     * @param _path
-     * @return
-     * @see #currentPath
-     * @see #svnReparent(List)
-     */
-    protected String buildPath(final String _path)
-    {
-        final StringBuilder completePath = new StringBuilder(this.currentPath);
-        if (_path != null)  {
-                completePath.append(_path);
-        }
-        return completePath.toString();
     }
 
     public String extractPathFromURL(final String _path)

@@ -54,32 +54,34 @@ public class ServerException
          */
         SVN_ERR_CLIENT_PROPERTY_NAME(SVN_ERR_CLIENT_CATEGORY_START + 11, "Bad property name"),
 
+        SVN_ERR_FS_NOT_FOUND(SVN_ERR_FS_CATEGORY_START + 13, "Filesystem has no item"),
+
         /** @since New in 1.2. */
-        SVN_ERR_FS_PATH_ALREADY_LOCKED(SVN_ERR_FS_CATEGORY_START + 35, "Path is already locked"),
+//        SVN_ERR_FS_PATH_ALREADY_LOCKED(SVN_ERR_FS_CATEGORY_START + 35, "Path is already locked"),
 
         /*  */
-        SVN_ERR_RA_ILLEGAL_URL(SVN_ERR_RA_CATEGORY_START + 0, "Bad URL passed to RA layer"),
+//        SVN_ERR_RA_ILLEGAL_URL(SVN_ERR_RA_CATEGORY_START + 0, "Bad URL passed to RA layer"),
 
-        SVN_ERR_RA_NOT_AUTHORIZED(SVN_ERR_RA_CATEGORY_START + 1, "Authorization failed"),
+//        SVN_ERR_RA_NOT_AUTHORIZED(SVN_ERR_RA_CATEGORY_START + 1, "Authorization failed"),
 
-        SVN_ERR_RA_UNKNOWN_AUTH(SVN_ERR_RA_CATEGORY_START + 2, "Unknown authorization method"),
+//        SVN_ERR_RA_UNKNOWN_AUTH(SVN_ERR_RA_CATEGORY_START + 2, "Unknown authorization method"),
 
-        SVN_ERR_RA_NOT_IMPLEMENTED(SVN_ERR_RA_CATEGORY_START + 3, "Repository access method not implemented"),
+//        SVN_ERR_RA_NOT_IMPLEMENTED(SVN_ERR_RA_CATEGORY_START + 3, "Repository access method not implemented"),
 
-        SVN_ERR_RA_OUT_OF_DATE(SVN_ERR_RA_CATEGORY_START + 4, "Item is out of date"),
+//        SVN_ERR_RA_OUT_OF_DATE(SVN_ERR_RA_CATEGORY_START + 4, "Item is out of date"),
 
-        SVN_ERR_RA_NO_REPOS_UUID(SVN_ERR_RA_CATEGORY_START + 5, "Repository has no UUID"),
+//        SVN_ERR_RA_NO_REPOS_UUID(SVN_ERR_RA_CATEGORY_START + 5, "Repository has no UUID"),
 
-        SVN_ERR_RA_UNSUPPORTED_ABI_VERSION(SVN_ERR_RA_CATEGORY_START + 6, "Unsupported RA plugin ABI version"),
+//        SVN_ERR_RA_UNSUPPORTED_ABI_VERSION(SVN_ERR_RA_CATEGORY_START + 6, "Unsupported RA plugin ABI version"),
 
         /** @since New in 1.2. */
-        SVN_ERR_RA_NOT_LOCKED(SVN_ERR_RA_CATEGORY_START + 7, "Path is not locked"),
+//        SVN_ERR_RA_NOT_LOCKED(SVN_ERR_RA_CATEGORY_START + 7, "Path is not locked"),
 
         /** @since New in 1.5. */
-        SVN_ERR_RA_PARTIAL_REPLAY_NOT_SUPPORTED(SVN_ERR_RA_CATEGORY_START + 8, "Server can only replay from the root of a repository"),
+//        SVN_ERR_RA_PARTIAL_REPLAY_NOT_SUPPORTED(SVN_ERR_RA_CATEGORY_START + 8, "Server can only replay from the root of a repository"),
 
         /** @since New in 1.5. */
-        SVN_ERR_RA_UUID_MISMATCH(SVN_ERR_RA_CATEGORY_START + 9, "Repository UUID does not match expected UUID"),
+//        SVN_ERR_RA_UUID_MISMATCH(SVN_ERR_RA_CATEGORY_START + 9, "Repository UUID does not match expected UUID"),
 
         /** @since New in 1.6. */
         SVN_ERR_RA_REPOS_ROOT_URL_MISMATCH(SVN_ERR_RA_CATEGORY_START + 10, "Repository root URL does not match expected root URL");

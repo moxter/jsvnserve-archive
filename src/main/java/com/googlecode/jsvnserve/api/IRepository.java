@@ -64,9 +64,19 @@ public interface IRepository
      *
      * @return root path within the repository
      * @see #getRepositoryPath()
+     * @see #setLocationPath(CharSequence)
      * @see IRepositoryFactory#createRepository(String, String)
      */
     public CharSequence getLocationPath();
+
+    /**
+     * A reparent of the repository itself is done. This means the current
+     * location path within the repository is changed.
+     *
+     * @param _newPath  new location path
+     * @see #getLocationPath()
+     */
+    public void setLocationPath(final CharSequence _newPath);
 
     /**
      * Must return for this repository current latest revision.

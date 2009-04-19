@@ -62,7 +62,7 @@ public class RepositoryFactory
         if ("/proxy".equals(_path) || _path.startsWith("/proxy/"))  {
             try  {
                 final String rootpath = _path.substring("/proxy".length());
-                return new Repository(this.svnURL.appendPath(rootpath, false),
+                return new Repository(this.svnURL,
                                       _user,
                                       "/proxy",
                                       rootpath);
