@@ -133,7 +133,7 @@ public abstract class AbstractDeltaFile
     {
         try {
             this.deltaReader.nextWindow(_buffer, 0, _buffer.length, null, this.deltaConsumer);
-        } catch (SVNException e) {
+        } catch (final SVNException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
@@ -171,6 +171,16 @@ public abstract class AbstractDeltaFile
     public boolean isContentChanged()
     {
         return this.file != null;
+    }
+
+    /**
+     * Returns the size of the file related to this delta.
+     *
+     * @return size (length) of the file in byte
+     */
+    public long getFileSize()
+    {
+      return this.file.length();
     }
 
     /**
