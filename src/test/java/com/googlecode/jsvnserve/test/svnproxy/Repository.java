@@ -428,11 +428,20 @@ public class Repository
         {
             try {
                 final File temp = File.createTempFile("SVN", ".temp");
-System.out.println("temp="+temp);
                 temp.deleteOnExit();
                 final OutputStream out = new FileOutputStream(temp);
                 try  {
-                    this.svnRepository.getFile(_path.toString(),
+                    // if a absolute path is defined, the absolute path must be
+                    // defined depending the root path of the SVN repository
+                    final String path;
+                    if (_path.toString().startsWith("/"))  {
+                        final String absPath = this.baseUrl.appendPath(_path.toString(), false).getPath();
+                        final String rootPath = this.svnRepository.getRepositoryRoot(false).getPath();
+                        path = absPath.substring(rootPath.length());
+                    } else  {
+                        path = _path.toString();
+                    }
+                    this.svnRepository.getFile(path,
                                                _revision,
                                                null,
                                                out);
@@ -739,6 +748,72 @@ System.out.println("nodeKind="+nodeKind);
             return entries;
         }
 
+
+        public EditorCommandSet getSwitchEditor(final String _newPath,
+                                                final Long _revision,
+                                                final String _path,
+                                                final Depth _depth,
+                                                final ReportList _report)
+                throws ServerException
+        {
+
+            final SVNEditor editor = new SVNEditor();
+
+            SVNDepth svnDepth = SVNDepth.UNKNOWN;
+            switch (_depth)  {
+                case EXCLUDE:       svnDepth = SVNDepth.EXCLUDE;break;
+                case EMPTY:         svnDepth = SVNDepth.EMPTY;break;
+                case FILES:         svnDepth = SVNDepth.FILES;break;
+                case IMMEDIATES:    svnDepth = SVNDepth.IMMEDIATES;break;
+                case INFINITY:      svnDepth = SVNDepth.INFINITY;break;
+            }
+
+
+try {
+    System.out.println("_path="+_path);
+System.out.println("_newPath="+_newPath);
+System.out.println("this.baseUrl="+this.baseUrl);
+System.out.println("this.baseUrl.appendPath(_newPath, false)="+this.baseUrl.appendPath(_newPath, false).getPath());
+//editor.startIdx = _newPath.length();
+
+editor.newPath = _path;
+editor.orgPath = _newPath;
+
+    // TODO: path could not start with / (why?)
+    this.svnRepository.update(this.baseUrl.appendPath(_newPath, false),
+                              (_revision != null) ? _revision : -1,
+                              _path,
+                              svnDepth,
+                              new ISVNReporterBaton()  {
+
+        public void report(final ISVNReporter isvnreporter) throws SVNException
+        {
+            for (final AbstractCommand command : _report.values())  {
+                if (command instanceof SetPath)  {
+                    final SetPath setPath = (SetPath) command;
+                    isvnreporter.setPath(setPath.getPath(),
+                                         setPath.getLockToken(),
+                                         setPath.getRevision(),
+                                         SVNDepth.INFINITY,
+                                         setPath.isStartEmpty());
+                } else if (command instanceof DeletePath)  {
+                    isvnreporter.deletePath(command.getPath());
+                }
+            }
+            isvnreporter.finishReport();
+            System.out.println("isvnreporter="+isvnreporter);
+        }
+
+    }, editor);
+} catch (final SVNException e) {
+    throw new ServerException(e.getMessage(), e);
+}
+
+System.out.println("editor.deltaEditor="+editor.deltaEditor);
+
+            return editor.deltaEditor;
+        }
+
         public EditorCommandSet getStatus(final Long _revision,
                                   final String _path,
                                   final Depth _depth,
@@ -793,6 +868,9 @@ try {
             implements ISVNEditor
     {
         EditorCommandSet deltaEditor;
+
+String newPath;
+String orgPath;
 
         private final Stack<AbstractDelta> stack = new Stack<AbstractDelta>();
 
@@ -858,7 +936,13 @@ delta= null;
             if ((_copiedPath != null) && (_copiedRevision >= 0))  {
 delta= null;
             } else  {
-                delta = this.deltaEditor.createFile(_path);
+                // must the file get on the server from original path?
+                if (this.newPath != null)  {
+                    delta = this.deltaEditor.createFile(_path,
+                                                        this.orgPath + _path.substring(this.newPath.length()));
+                } else  {
+                    delta = this.deltaEditor.createFile(_path);
+                }
             }
             this.stack.add(delta);
         }
@@ -879,9 +963,12 @@ delta= null;
             this.stack.pop();
         }
 
-        public void openFile(final String s, final long l)
+        public void openFile(final String _path,
+                             final long _revision)
         {
-            System.out.println("openFile("+s+","+l+")");
+            System.out.println("openFile("+_path+","+_revision+")");
+//            final AbstractDelta delta = this.deltaEditor.updateFile(_path.substring(this.startIdx), (_revision >= 0) ? _revision : null);
+//            this.stack.add(delta);
 
         }
 

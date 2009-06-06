@@ -27,6 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 
 import org.tmatesoft.svn.core.SVNException;
 import org.tmatesoft.svn.core.internal.delta.SVNDeltaReader;
@@ -35,7 +36,11 @@ import org.tmatesoft.svn.core.io.ISVNDeltaConsumer;
 import org.tmatesoft.svn.core.io.diff.SVNDeltaProcessor;
 import org.tmatesoft.svn.core.io.diff.SVNDiffWindow;
 
+import com.googlecode.jsvnserve.SVNSessionStreams;
+import com.googlecode.jsvnserve.SVNSessionStreams.DeltaOutputStream;
 import com.googlecode.jsvnserve.api.OtherServerException;
+import com.googlecode.jsvnserve.element.ListElement;
+import com.googlecode.jsvnserve.element.WordElement.Word;
 
 /**
  * Handles all file commands from the editor command set
@@ -217,4 +222,69 @@ throw new OtherServerException("temporary file '" + this.file + "' not found");
         }
     }
 
+    /**
+     * Writes the given file for given event <code>_type</code> to the
+     * <code>_streams</code> including all required properties. The content
+     * of the file is calculated depending on the delta between
+     * <code>_orgIn</code> and the <code>_targetIn</code>.
+     *
+     * @param _targetRevision   target revision of the written file
+     * @param _streams          SVN in- and output stream
+     * @param _parentToken      token of the parent directory (where the file
+     *                          is located)
+     * @param _type             type of the file to write
+     *                          ({@link Word#ADD_FILE} or
+     *                          {@link Word#OPEN_FILE})
+     * @param _orgIn            input stream of the original file
+     * @param _targetIn         input stream of the target file
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     */
+    protected void writeOpen(final long _targetRevision,
+                             final SVNSessionStreams _streams,
+                             final String _parentToken,
+                             final Word _type,
+                             final InputStream _orgIn,
+                             final InputStream _targetIn)
+            throws UnsupportedEncodingException, IOException
+    {
+        _streams.writeItemList(
+                new ListElement(_type,
+                                new ListElement(this.getPath(),
+                                                _parentToken,
+                                                this.getToken(),
+                                                new ListElement())));
+        this.writeAllProperties(_streams, Word.CHANGE_FILE_PROP);
+
+        _streams.writeItemList(new ListElement(Word.APPLY_TEXTDELTA, new ListElement(this.getToken(), new ListElement())));
+
+        final String md5 = _streams.writeFileDelta(
+                _orgIn,
+                _targetIn,
+                new DeltaOutputStream() {
+                    @Override
+                    public void write(final byte _bytes[],
+                                      final int _offset,
+                                      final int _len)
+                    throws IOException
+                    {
+                        _streams.traceWrite("( textdelta-chunk ( 2:{} ( {}:... ) ) ) ", AbstractDeltaFile.this.getToken(), _len);
+                        _streams.writeWithoutFlush("( textdelta-chunk ( ");
+                        _streams.writeWithoutFlush(String.valueOf(AbstractDeltaFile.this.getToken().length()));
+                        _streams.writeWithoutFlush(':');
+                        _streams.writeWithoutFlush(AbstractDeltaFile.this.getToken());
+                        _streams.writeWithoutFlush(' ');
+                        _streams.writeWithoutFlush(String.valueOf(_len));
+                        _streams.writeWithoutFlush(':');
+                        _streams.writeWithoutFlush(_bytes, _offset, _len);
+                        _streams.writeWithoutFlush(" ) ) ");
+                    }
+                },
+                true);
+
+        _streams.writeItemList(
+                new ListElement(Word.TEXTDELTA_END, new ListElement(this.getToken())),
+                new ListElement(Word.CLOSE_FILE, new ListElement(this.getToken(), new ListElement(md5))));
+
+    }
 }

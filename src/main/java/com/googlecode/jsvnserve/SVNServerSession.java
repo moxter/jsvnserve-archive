@@ -298,6 +298,7 @@ public class SVNServerSession
                         case REPARENT:          this.svnReparent(items.getList().get(1).getList());break;
                         case STAT:              this.svnStat(items.getList().get(1).getList());break;
                         case STATUS:            this.svnStatus(items.getList().get(1).getList());break;
+                        case SWITCH:            this.svnSwitch(items.getList().get(1).getList());break;
                         case UNLOCK_MANY:       this.svnUnlockMany(items.getList().get(1).getList());break;
                         case UPDATE:            this.svnUpdate(items.getList().get(1).getList());break;
                         default:
@@ -1185,9 +1186,9 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      * <tr><td><code style="color:green">) )</code></td></tr>
      * </table>
      *
-     * <h3>SVN Response from Server to Client:</h3>
+     * <p><b>SVN Response from Server to Client</b><br/>
      * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a></code><br/>
-     * Server sends that no authorization is needed.
+     * Server sends that no authorization is needed.</p>
      *
      * <p><b>SVN Response from Client to Server:</b><br/>
      * Client switches to report command set.
@@ -1219,7 +1220,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         // revision number
         final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
         final long revision = (revisionParams.isEmpty()) ? -1 : revisionParams.get(0).getNumber();
-        // update path
+        // target string (update path)
         final String path = _parameters.get(1).getString();
         // recurse?
         final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
@@ -1267,6 +1268,104 @@ final ListElement result = this.streams.readItemList();
 if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {
     throw new Error("update does not work");
 }
+    }
+
+    /**
+     * Updates the working copy on the client side to a different URL.
+     * Following steps are done:
+     * <ul>
+     * <li>Client switches to report command set.</li>
+     * <li>Upon finish-report, server sends auth-request.</li>
+     * <li>After auth exchange completes, server switches to editor command
+     *     set.</li>
+     * <li>After edit completes, server sends response.</li>
+     * </ul>
+     *
+     * @param _parameters
+     * @throws UnsupportedEncodingException
+     * @throws IOException
+     * @throws URISyntaxException
+     */
+    protected void svnSwitch(final List<AbstractElement<?>> _parameters)
+            throws UnsupportedEncodingException, IOException, URISyntaxException
+    {
+        // revision number
+        final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
+        final long revision = (revisionParams.isEmpty()) ? -1 : revisionParams.get(0).getNumber();
+        // target string (update path) on which the switch is called
+        final String path = _parameters.get(1).getString();
+        // recurse?
+        final boolean recurse = (_parameters.get(2).getWord() == Word.BOOLEAN_TRUE);
+        // new url
+        final String url = _parameters.get(3).getString();
+        // depth
+        Depth depth = (_parameters.size() > 4)
+                      ? Depth.valueOf(_parameters.get(4).getWord())
+                      : Depth.UNKNOWN;
+        if (depth == null)  {
+            depth = Depth.UNKNOWN;
+        }
+        if ((depth == Depth.UNKNOWN) && recurse)  {
+            depth = Depth.INFINITY;
+        }
+
+        final URI uri = new URI(url);
+        final String newPath = "".equals(uri.getPath()) ? "/" : uri.getPath();
+        final String newLocation = newPath.substring(this.repository.getRepositoryPath().length());
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        final ReportList report = new ReportList();
+        report.read(this.streams);
+
+        this.streams.writeItemList(SVNServerSession.NO_AUTHORIZATION_NEEDED);
+
+        EditorCommandSet deltaEditor = null;
+        ServerException exception = null;
+
+        // check if a switch on files is done...
+        DirEntry dirEntry = null;
+        try  {
+            dirEntry = this.getRepository().stat(revision, path, false);
+        } catch (final ServerException ex)  {
+            exception = ex;
+        }
+
+        // is there an exception?
+        if (exception != null)  {
+            this.streams.writeItemList(new ListElement(Word.ABORT_EDIT, new ListElement()));
+            this.streams.writeFailureStatus(exception);
+        // switch to a file is done
+        } else {
+            if (dirEntry.getKind() == Word.NODE_KIND_FILE)  {
+                // TODO: check if target path is also a file
+                deltaEditor = new EditorCommandSet(revision);
+                deltaEditor.updateRoot(revision);
+                deltaEditor.updateFile(path, newLocation, revision);
+            // else a switch to a complete directory structure is done
+            } else  {
+                try  {
+                    deltaEditor = this.getRepository().getSwitchEditor(newLocation, revision, path, depth, report);
+                } catch (final ServerException ex)  {
+                    exception = ex;
+                }
+            }
+
+            if (exception != null)  {
+                this.streams.writeItemList(new ListElement(Word.ABORT_EDIT, new ListElement()));
+                this.streams.writeFailureStatus(exception);
+            } else  {
+                // editor mode
+                deltaEditor.write(this.streams);
+                this.streams.writeSuccessStatus();
+            }
+        }
+
+final ListElement result = this.streams.readItemList();
+if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {
+    throw new Error("update does not work");
+}
+
     }
 
     /**
