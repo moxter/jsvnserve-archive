@@ -1197,9 +1197,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      * <p><b>SVN Response from Server to Client</b><br/>
      * <code style="color:green">authorization:<a href="noauthorization">no-authorization</a></code><br/>
      * In the case of no error server switches to editor command set and sends
-     * the edit commands {@link EditorCommandSet#write(SVNSessionStreams)}.
-     * After edit completes, server sends empty success
-     * {@link SVNSessionStreams#writeSuccessStatus()}. <br/>
+     * the edit commands {@link EditorCommandSet#write(SVNSessionStreams)}. <br/>
      * In the case of an error, the server must also switch to the editor
      * command set, but only writes the abort editor command
      * <nobr>&quot;<code>( abort-edit ( ) )</code>&quot;</nobr>. Then the
@@ -1208,7 +1206,18 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      *
      * <p><b>SVN Answer from Client</b><br/>
      * In Both cases the client answers with an empty success
-     * <nobr>&quot;<code>( success ( ) )</code>&quot;</nobr>.</p>
+     * <nobr>&quot;<code>( success ( ) )</code>&quot;</nobr>. If on client side
+     * an error has occured than the client returns a
+     * <nobr>&quot;<code>( failure ( ( ERRNO:<a href="#number">number</a>
+     * ERRTXT:<a href="#string">string</a> ... ) ) )</code>&quot;</nobr>.</p>
+     *
+     * <p><b>SVN Response from Server</b><br/>
+     * In the case a failure from the client was sent, the server answers
+     * with <nobr>&quot;<code>( abort-edit ( ) )</code>&quot;</nobr> and the
+     * same failure message which was sent from the client.<br/>
+     * In the case of success the server sends an empty success
+     * {@link SVNSessionStreams#writeSuccessStatus()}.</p>
+     *
      *
      * @param _parameters
      * @throws UnsupportedEncodingException
@@ -1258,16 +1267,27 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         if (exception != null)  {
             this.streams.writeItemList(new ListElement(Word.ABORT_EDIT, new ListElement()));
             this.streams.writeFailureStatus(exception);
+            // get result from client
+            this.streams.readItemList();
         } else  {
             // editor mode
             deltaEditor.write(this.streams);
-            this.streams.writeSuccessStatus();
-        }
 
-final ListElement result = this.streams.readItemList();
-if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCESS))  {
-    throw new Error("update does not work");
-}
+            // get result from client
+            final ListElement result = this.streams.readItemList();
+
+            if (result.getList().get(0).getWord() == Word.STATUS_SUCCESS)  {
+                // client sent success => server must also sent success
+                this.streams.writeSuccessStatus();
+            } else if (result.getList().get(0).getWord() == Word.STATUS_FAILURE)  {
+                // if an failure comes from client an abort is sent
+                // and failure is sent back
+                this.streams.writeItemList(new ListElement(Word.ABORT_EDIT, new ListElement()),
+                                           result);
+            } else  {
+                throw new Error("unknown status from client:" + result);
+            }
+        }
     }
 
     /**

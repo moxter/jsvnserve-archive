@@ -40,6 +40,7 @@ public class ServerException
     private final static long SVN_ERR_FS_CATEGORY_START = APR_OS_START_USERERR + ( 8 * SVN_ERR_CATEGORY_SIZE);
     private final static long SVN_ERR_RA_CATEGORY_START = APR_OS_START_USERERR + (10 * SVN_ERR_CATEGORY_SIZE);
     private final static long SVN_ERR_CLIENT_CATEGORY_START = APR_OS_START_USERERR + (15 * SVN_ERR_CATEGORY_SIZE);
+    private final static long SVN_ERR_MISC_CATEGORY_START = APR_OS_START_USERERR + (16 * SVN_ERR_CATEGORY_SIZE);
     public static enum ErrorCode
     {
         /**
@@ -86,7 +87,14 @@ public class ServerException
 //        SVN_ERR_RA_UUID_MISMATCH(SVN_ERR_RA_CATEGORY_START + 9, "Repository UUID does not match expected UUID"),
 
         /** @since New in 1.6. */
-        SVN_ERR_RA_REPOS_ROOT_URL_MISMATCH(SVN_ERR_RA_CATEGORY_START + 10, "Repository root URL does not match expected root URL");
+        SVN_ERR_RA_REPOS_ROOT_URL_MISMATCH(SVN_ERR_RA_CATEGORY_START + 10, "Repository root URL does not match expected root URL"),
+
+        /**
+         * If the server gets incomplete date, e.g.if an abort is done while
+         * update was sent from client to server.
+         */
+        SVN_ERR_INCOMPLETE_DATA(SVN_ERR_MISC_CATEGORY_START + 3, "Incomplete data");
+
 
         public final long code;
 
