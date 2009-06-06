@@ -35,6 +35,7 @@ import java.util.TreeSet;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.api.ServerException;
+import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
@@ -229,15 +230,18 @@ public class EditorCommandSet
 
     /**
      *
-     * @param _streams
+     * @param _streams      SVN in - / output streams
      * @throws IOException
      * @throws URISyntaxException   if for copied directories or files the
      *                              copied path could not parsed
+     * @throws ServerException      if the client has aborted or if an unknown
+     *                              key from client was sent
      */
     public void read(final SVNSessionStreams _streams)
             throws IOException, URISyntaxException, ServerException
     {
         boolean closed = false;
+        boolean aborted = false;
         final Set<String> unknownCommands = new TreeSet<String>();
         while (!closed)  {
             final ListElement list = _streams.readItemList();
@@ -274,9 +278,6 @@ public class EditorCommandSet
                                  params.get(2).getList().get(0).getString());
                     break;
                 case CLOSE_DIR:
-                    break;
-                case CLOSE_EDIT:
-                    closed = true;
                     break;
                 case ADD_FILE:
                     this.addDelta(new DeltaFileCreate(params.get(2).getString(),
@@ -321,6 +322,13 @@ public class EditorCommandSet
                     final AbstractDeltaFile cfDelta = (AbstractDeltaFile) this.mapToken2Delta.get(cfToken);
                     cfDelta.closeFile(cfMD5);
                     break;
+                case ABORT_EDIT:
+                    closed = true;
+                    aborted = true;
+                    break;
+                case CLOSE_EDIT:
+                    closed = true;
+                    break;
                 default:
                     unknownCommands.add(key.value);
             }
@@ -329,6 +337,11 @@ public class EditorCommandSet
         if (!unknownCommands.isEmpty())  {
 // TODO: i18n
 throw new ServerException("Unknown command(s) " + unknownCommands);
+        }
+
+        if (aborted)  {
+            // original message "Delta source ended unexpectedly"
+            throw new ServerException(ErrorCode.SVN_ERR_INCOMPLETE_DATA);
         }
     }
 
