@@ -967,9 +967,8 @@ delta= null;
                              final long _revision)
         {
             System.out.println("openFile("+_path+","+_revision+")");
-//            final AbstractDelta delta = this.deltaEditor.updateFile(_path.substring(this.startIdx), (_revision >= 0) ? _revision : null);
-//            this.stack.add(delta);
-
+            final AbstractDelta delta = this.deltaEditor.updateFile(_path, _path, (_revision >= 0) ? _revision : null);
+            this.stack.add(delta);
         }
 
         public SVNCommitInfo closeEdit()
