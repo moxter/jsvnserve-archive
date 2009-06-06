@@ -489,12 +489,29 @@ public class SimpleTests
      */
     @Test(dependsOnMethods = "createDirWithParentDir", timeOut = 10000)
     public void testCreateDirWithoutParentDir()
-            throws InterruptedException, IOException, ExecuteException
+            throws InterruptedException, IOException
     {
         try  {
             this.execute(true, "--message", "create directory", "mkdir", this.getRepositoryURL() + "/u2/v2");
         } catch (final ExecuteException ex)  {
             Assert.assertTrue(ex.getMessage().contains("svn: Try 'svn mkdir --parents' instead?"));
         }
+    }
+
+    /**
+     * Make a switch on the temp2 directory to temp1.
+     *
+     * @throws InterruptedException
+     * @throws IOException
+     * @throws ExecuteException
+     */
+    @Test(dependsOnMethods = {"testCreateDirWithoutParentDir", "updateFile"}, timeOut = 10000)
+    public void testSwitchURL()
+            throws InterruptedException, IOException, ExecuteException
+    {
+        this.execute(true, "switch", this.getRepositoryURL() + "/temp1", "temp2");
+        Assert.assertTrue(new File(this.getWCPath(), "temp2/file1.txt").exists());
+        Assert.assertTrue(new File(this.getWCPath(), "temp2/sub1").exists());
+        Assert.assertTrue(new File(this.getWCPath(), "temp2/sub2").exists());
     }
 }
