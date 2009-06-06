@@ -164,13 +164,51 @@ public class EditorCommandSet
 
     /**
      *
-     * @param _path         path of the file
+     * @param _path         path of the file (identically on client and server
+     *                      side)
      * @return new create delta instance
      * @see DeltaFileCreate
+     * @see #createFile(String, String)
      */
     public AbstractDelta createFile(final String _path)
     {
         final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path);
+        this.addDelta(delta);
+        return delta;
+    }
+
+    /**
+     *
+     * @param _path         path of the file (on the client side)
+     * @param _serverPath   path of the file (on the server); the path is used
+     *                      to get the input stream from the file and returned
+     *                      to the client as <code>_path</code>
+     * @return new create delta instance
+     * @see DeltaFileCreate
+     * @see #createFile(String)
+     */
+    public AbstractDelta createFile(final String _path,
+                                    final String _serverPath)
+    {
+        final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path, _serverPath);
+        this.addDelta(delta);
+        return delta;
+    }
+
+    /**
+     *
+     * @param _path         path of the file (on the client side)
+     * @param _orgPath      path of the file (on the server); the path is used
+     *                      to get the input stream
+     * @param _revision     revision of the file
+     * @return new update file delta instance
+     * @see DeltaFileCreate
+     */
+    public AbstractDelta updateFile(final String _path,
+                                    final String _orgPath,
+                                    final Long _revision)
+    {
+        final AbstractDelta delta = new DeltaFileOpen(getNewToken('f'), _path, _orgPath, _revision);
         this.addDelta(delta);
         return delta;
     }
@@ -247,6 +285,7 @@ public class EditorCommandSet
                 case OPEN_FILE:
                     this.addDelta(new DeltaFileOpen(params.get(2).getString(),
                                                     params.get(0).getString(),
+                                                    params.get(0).getString(),
                                                     params.get(3).getList().get(0).getNumber()));
                     break;
                 case APPLY_TEXTDELTA:
@@ -320,7 +359,7 @@ throw new ServerException("Unknown command(s) " + unknownCommands);
                 final File file = new File(delta.getPath());
                 final String parentDir = (file.getParent() == null) ? "" : file.getParent();
 
-                while (!stack.peek().getPath().equals(parentDir))  {
+                while (!stack.peek().getPath().equals(parentDir)/* && (stack.size() > 1)*/)  {
                     stack.pop().writeClose(_streams);
                 }
 

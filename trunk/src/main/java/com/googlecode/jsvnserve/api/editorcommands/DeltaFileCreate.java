@@ -25,8 +25,6 @@ import java.io.UnsupportedEncodingException;
 import java.util.Date;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
-import com.googlecode.jsvnserve.SVNSessionStreams.DeltaOutputStream;
-import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
 
 /**
@@ -43,10 +41,41 @@ public class DeltaFileCreate
      */
     private static final long serialVersionUID = -8348087046520885577L;
 
+    /**
+     * Path of the file on the server. Used to get the input stream which is
+     * sent to the client.
+     */
+    private final String serverPath;
+
+    /**
+     * Constructor to initialize the delta file create.
+     *
+     * @param _token    used token of the file represented by this delta file
+     *                  create instance
+     * @param _path     path of the file to create (identically to the file on
+     *                  the server side)
+     */
     DeltaFileCreate(final String _token,
                     final String _path)
     {
         super(_token, _path, null, null);
+        this.serverPath = _path;
+    }
+
+    /**
+     *
+     * @param _token        used token of the file represented by this delta
+     *                      file create instance
+     * @param _path         path of the file used on the client side
+     * @param _serverPath   path of the file on the server (to get the input
+     *                      stream of the file
+     */
+    DeltaFileCreate(final String _token,
+                    final String _path,
+                    final String _serverPath)
+    {
+        super(_token, _path, null, null);
+        this.serverPath = _serverPath;
     }
 
     /**
@@ -55,10 +84,11 @@ public class DeltaFileCreate
      *                          commands must be written; used for the revision
      *                          of the file (to get the input stream from the
      *                          repository)
-     * @param _streams
+     * @param _streams          SVN in- and output stream
      * @param _parentToken      token of the parent directory
      * @throws UnsupportedEncodingException
      * @throws IOException
+     * @see AbstractDeltaFile#writeOpen(long, SVNSessionStreams, String, Word, java.io.InputStream, java.io.InputStream)
      */
     @Override
     protected void writeOpen(final long _targetRevision,
@@ -66,45 +96,23 @@ public class DeltaFileCreate
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
-        _streams.writeItemList(
-                new ListElement(Word.ADD_FILE,
-                                new ListElement(this.getPath(),
-                                                _parentToken,
-                                                this.getToken(),
-                                                new ListElement())));
-        this.writeAllProperties(_streams, Word.CHANGE_FILE_PROP);
-
-        _streams.writeItemList(new ListElement(Word.APPLY_TEXTDELTA, new ListElement(this.getToken(), new ListElement())));
-
-        final String md5 = _streams.writeFileDelta(
-                null,
-                _streams.getSession().getRepository().getFile(_targetRevision, this.getPath()),
-                new DeltaOutputStream() {
-                    @Override
-                    public void write(final byte _bytes[],
-                                      final int _offset,
-                                      final int _len)
-                    throws IOException
-                    {
-                        _streams.traceWrite("( textdelta-chunk ( 2:{} ( {}:... ) ) ) ", DeltaFileCreate.this.getToken(), _len);
-                        _streams.writeWithoutFlush("( textdelta-chunk ( ");
-                        _streams.writeWithoutFlush(String.valueOf(DeltaFileCreate.this.getToken().length()));
-                        _streams.writeWithoutFlush(':');
-                        _streams.writeWithoutFlush(DeltaFileCreate.this.getToken());
-                        _streams.writeWithoutFlush(' ');
-                        _streams.writeWithoutFlush(String.valueOf(_len));
-                        _streams.writeWithoutFlush(':');
-                        _streams.writeWithoutFlush(_bytes, _offset, _len);
-                        _streams.writeWithoutFlush(" ) ) ");
-                    }
-                },
-                true);
-
-        _streams.writeItemList(
-                new ListElement(Word.TEXTDELTA_END, new ListElement(this.getToken())),
-                new ListElement(Word.CLOSE_FILE, new ListElement(this.getToken(), new ListElement(md5))));
+        this.writeOpen(_targetRevision,
+                       _streams,
+                       _parentToken,
+                       Word.ADD_FILE,
+                       null,
+                       _streams.getSession().getRepository().getFile(_targetRevision, this.serverPath));
     }
 
+    /**
+     * The close tag is already written in
+     * {@link #writeOpen(long, SVNSessionStreams, String)} and therefore
+     * nothing is done in this method. The close tag could not be written here,
+     * because the close tag must also include the MD5 checksum which is
+     * calculated file the file stream is written.
+     *
+     * @param _streams          SVN in- and output stream
+     */
     @Override
     protected void writeClose(final SVNSessionStreams _streams)
     {

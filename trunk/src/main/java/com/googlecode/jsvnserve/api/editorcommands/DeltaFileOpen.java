@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
+import com.googlecode.jsvnserve.element.WordElement.Word;
 
 /**
  * Class for the delta to open a file.
@@ -47,16 +48,25 @@ public class DeltaFileOpen
     private final long revision;
 
     /**
+     * Path of the file on the server. Used to get the input stream which is
+     * sent to the client.
+     */
+    private final String serverPath;
+
+    /**
      *
-     * @param _token    file token
-     * @param _path     file path
-     * @param _revision file revision
+     * @param _token        file token
+     * @param _path         file path (used from the client)
+     * @param _serverPath   path of the file on the server
+     * @param _revision     file revision
      */
     DeltaFileOpen(final String _token,
                   final String _path,
+                  final String _serverPath,
                   final long _revision)
     {
         super(_token, _path, null, null);
+        this.serverPath = _serverPath;
         this.revision = _revision;
     }
 
@@ -75,7 +85,7 @@ public class DeltaFileOpen
      *
      * @param _targetRevision   target revision for which the the SVN editor
      *                          commands must be written (not used)
-     * @param _streams
+     * @param _streams          SVN in- and output stream
      * @param _parentToken      token of the parent directory
      * @throws UnsupportedEncodingException
      * @throws IOException
@@ -86,12 +96,25 @@ public class DeltaFileOpen
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
-        // TODO: only stub!
+        this.writeOpen(_targetRevision,
+                _streams,
+                _parentToken,
+                Word.OPEN_FILE,
+                null,
+                _streams.getSession().getRepository().getFile(_targetRevision, this.serverPath));
     }
 
+    /**
+     * The close tag is already written in
+     * {@link #writeOpen(long, SVNSessionStreams, String)} and therefore
+     * nothing is done in this method. The close tag could not be written here,
+     * because the close tag must also include the MD5 checksum which is
+     * calculated file the file stream is written.
+     *
+     * @param _streams          SVN in- and output stream
+     */
     @Override
     protected void writeClose(final SVNSessionStreams _streams)
     {
-        // TODO: only stub!
     }
 }

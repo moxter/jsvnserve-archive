@@ -301,6 +301,29 @@ public interface IRepository
             throws ServerException;
 
     /**
+     * <p>The client wants to switch from <code>_path</code> to
+     * <code>_newPath</code>. The current state of <code>_path</code> on the
+     * client side is described by <code>_report</code>.</p>
+     * <p>The switch is only called if a switch between directory paths
+     * wanted.</p>
+     *
+     * @param _newPath      new path to which a switch is done
+     * @param _revision     revision to which a switch is done
+     * @param _path         path from which a switch is done
+     * @param _depth        depth of the switch
+     * @param _report       report list of the delta to <code>_path</code>
+     * @return editor command set describing the required updates to switch
+     *         from <code>_path</code> to <code>_newPath</code>
+     * @throws ServerException
+     */
+    public EditorCommandSet getSwitchEditor(final String _newPath,
+                                            final Long _revision,
+                                            final String _path,
+                                            final Depth _depth,
+                                            final ReportList _report)
+            throws ServerException;
+
+    /**
      * <p>Returns the path locations in revision history. The location of a
      * path could change from revision to revision, so the method allows to
      * trace the information of the location in different revision.</p>
@@ -336,4 +359,5 @@ public interface IRepository
     public LocationEntries getLocations(final long _pegRevision,
                                         final String _path,
                                         final long... _revisions);
+
 }
