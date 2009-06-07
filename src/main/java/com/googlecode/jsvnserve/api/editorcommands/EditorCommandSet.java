@@ -145,14 +145,14 @@ public class EditorCommandSet
 
     public AbstractDelta updateRoot(final Long _revision)
     {
-        final AbstractDelta delta = new DeltaRootOpen(getNewToken('d'), _revision);
+        final AbstractDelta delta = new DeltaRootOpen(this.getNewToken('d'), _revision);
         this.addDelta(delta);
         return delta;
     }
 
     public AbstractDelta createDir(final String _path)
     {
-        final AbstractDelta delta = new DeltaDirectoryCreate(getNewToken('d'), _path);
+        final AbstractDelta delta = new DeltaDirectoryCreate(this.getNewToken('d'), _path);
         this.addDelta(delta);
         return delta;
     }
@@ -160,7 +160,7 @@ public class EditorCommandSet
     public AbstractDelta updateDir(final String _path,
                                    final Long _revision)
     {
-        final AbstractDelta delta = new DeltaDirectoryOpen(getNewToken('d'), _path, _revision);
+        final AbstractDelta delta = new DeltaDirectoryOpen(this.getNewToken('d'), _path, _revision);
         this.addDelta(delta);
         return delta;
     }
@@ -175,7 +175,7 @@ public class EditorCommandSet
      */
     public AbstractDelta createFile(final String _path)
     {
-        final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path);
+        final AbstractDelta delta = new DeltaFileCreate(this.getNewToken('f'), _path);
         this.addDelta(delta);
         return delta;
     }
@@ -193,7 +193,7 @@ public class EditorCommandSet
     public AbstractDeltaFile createFile(final String _path,
                                         final String _serverPath)
     {
-        final AbstractDeltaFile delta = new DeltaFileCreate(getNewToken('f'), _path, _serverPath);
+        final AbstractDeltaFile delta = new DeltaFileCreate(this.getNewToken('f'), _path, _serverPath);
         this.addDelta(delta);
         return delta;
     }
@@ -201,7 +201,8 @@ public class EditorCommandSet
     /**
      *
      * @param _currentPath      path of the file (on the client side)
-     * @param _currentRevision  revision of the file
+     * @param _currentRevision  current revision of the file on the client
+     *                          (base file, which is updated)
      * @param _orgPath          path of the file (on the server); the path is
      *                          used to get the input stream
      * @return new update file delta instance
@@ -211,7 +212,7 @@ public class EditorCommandSet
                                         final Long _currentRevision,
                                         final String _orgPath)
     {
-        final AbstractDeltaFile delta = new DeltaFileOpen(getNewToken('f'),
+        final AbstractDeltaFile delta = new DeltaFileOpen(this.getNewToken('f'),
                                                           _currentPath,
                                                           _orgPath,
                                                           _currentRevision);
