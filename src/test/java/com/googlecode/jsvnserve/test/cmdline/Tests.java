@@ -179,7 +179,7 @@ public class Tests
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test(timeOut = 20000)
     public void test()
             throws Exception
     {
