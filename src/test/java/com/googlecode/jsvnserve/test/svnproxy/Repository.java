@@ -137,11 +137,23 @@ public class Repository
                       final String _location)
             throws SVNException
     {
-        this.baseUrl = _svnUrl;
-        this.repositoryPath = _repositoryPath;
-        this.location = _location;
         this.clientManager = SVNClientManager.newInstance(null, new BasicAuthenticationManager(_user , _user));
-        this.svnRepository = this.clientManager.createRepository(_svnUrl.appendPath(this.location, true), false);
+
+        final SVNURL svnUrl = _svnUrl.appendPath(_location, false);
+
+        this.svnRepository = this.clientManager.createRepository(svnUrl, false);
+
+        // get current root path
+        final String rootPath = this.svnRepository.getRepositoryRoot(true).getPath();
+
+        // repository path is given location minus root path
+        this.repositoryPath = _repositoryPath + rootPath.substring(_svnUrl.getPath().length());
+
+        // new location is all after root path
+        this.location = svnUrl.getPath().substring(rootPath.length());
+
+        // new base URL is the root URL
+        this.baseUrl = this.svnRepository.getRepositoryRoot(true);
     }
 
         public UUID getUUID()
@@ -770,10 +782,6 @@ System.out.println("nodeKind="+nodeKind);
 
 
 try {
-    System.out.println("_path="+_path);
-System.out.println("_newPath="+_newPath);
-System.out.println("this.baseUrl="+this.baseUrl);
-System.out.println("this.baseUrl.appendPath(_newPath, false)="+this.baseUrl.appendPath(_newPath, false).getPath());
 //editor.startIdx = _newPath.length();
 
 editor.newPath = _path;
