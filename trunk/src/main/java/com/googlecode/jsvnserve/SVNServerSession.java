@@ -1361,7 +1361,9 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
                 // TODO: check if target path is also a file
                 deltaEditor = new EditorCommandSet(revision);
                 deltaEditor.updateRoot(revision);
-                deltaEditor.updateFile(path, newLocation, revision);
+// TODO: get current revision + md5
+                deltaEditor.updateFile(path, null, newLocation)
+                           .setBaseCheckSumMD5(null);
             // else a switch to a complete directory structure is done
             } else  {
                 try  {

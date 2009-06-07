@@ -256,7 +256,7 @@ public class Repository
                         }
                     } else if (delta instanceof DeltaFileOpen)  {
                         final DeltaFileOpen fileOpen = (DeltaFileOpen) delta;
-                        editor.openFile(fileOpen.getPath(), fileOpen.getRevision());
+                        editor.openFile(fileOpen.getPath(), fileOpen.getBaseRevision());
                         for (final Map.Entry<String,String> entry : fileOpen.entrySet())  {
                             editor.changeFileProperty(fileOpen.getPath(),
                                                       entry.getKey(),
@@ -967,7 +967,7 @@ delta= null;
                              final long _revision)
         {
             System.out.println("openFile("+_path+","+_revision+")");
-            final AbstractDelta delta = this.deltaEditor.updateFile(_path, _path, (_revision >= 0) ? _revision : null);
+            final AbstractDelta delta = this.deltaEditor.updateFile(_path, (_revision >= 0) ? _revision : null, _path);
             this.stack.add(delta);
         }
 
@@ -995,9 +995,10 @@ delta= null;
             this.deltaEditor = new EditorCommandSet(_targetRevision);
         }
 
-        public void applyTextDelta(final String s, final String s1) throws SVNException
+        public void applyTextDelta(final String s, final String _baseMD5) throws SVNException
         {
-            System.out.println("applyTextDelta("+s+","+s1+")");
+            System.out.println("applyTextDelta("+s+","+_baseMD5+")");
+            ((AbstractDeltaFile) this.stack.peek()).setBaseCheckSumMD5(_baseMD5);
         }
 
         public OutputStream textDeltaChunk(final String s, final SVNDiffWindow svndiffwindow)

@@ -25,6 +25,7 @@ import java.io.UnsupportedEncodingException;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.util.Server2Client;
 
 /**
  * Class for the delta to open a file.
@@ -41,13 +42,6 @@ public class DeltaFileOpen
     private static final long serialVersionUID = 4917399931185488168L;
 
     /**
-     * Holds the revision of the file.
-     *
-     * @see #getRevision()
-     */
-    private final long revision;
-
-    /**
      * Path of the file on the server. Used to get the input stream which is
      * sent to the client.
      */
@@ -55,30 +49,23 @@ public class DeltaFileOpen
 
     /**
      *
-     * @param _token        file token
-     * @param _path         file path (used from the client)
-     * @param _serverPath   path of the file on the server
-     * @param _revision     file revision
+     * @param _token            file token
+     * @param _path             file path (used from the client) which is
+     *                          updated (and so the current path...)
+     * @param _serverPath       path of the file on the server
+     * @param _currentRevision  current file revision which is opened (and
+     *                          updated)
+     * @param _currentMD5       current MD5 hash of the file which is opened
+     *                          (and updated); only if a MD5 exists a file
+     *                          will be updated (and not replaced)
      */
     DeltaFileOpen(final String _token,
                   final String _path,
                   final String _serverPath,
-                  final long _revision)
+                  final long _currentRevision)
     {
-        super(_token, _path, null, null);
+        super(_token, _path, _path, _currentRevision);
         this.serverPath = _serverPath;
-        this.revision = _revision;
-    }
-
-    /**
-     * Returns the revision of the file.
-     *
-     * @return revision of the file
-     * @see #revision
-     */
-    public long getRevision()
-    {
-        return this.revision;
     }
 
     /**
@@ -91,16 +78,16 @@ public class DeltaFileOpen
      * @throws IOException
      */
     @Override
+    @Server2Client
     protected void writeOpen(final long _targetRevision,
                              final SVNSessionStreams _streams,
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
-        this.writeOpen(_targetRevision,
+        this.writeOpen(
                 _streams,
                 _parentToken,
                 Word.OPEN_FILE,
-                null,
                 _streams.getSession().getRepository().getFile(_targetRevision, this.serverPath));
     }
 
@@ -114,6 +101,7 @@ public class DeltaFileOpen
      * @param _streams          SVN in- and output stream
      */
     @Override
+    @Server2Client
     protected void writeClose(final SVNSessionStreams _streams)
     {
     }
