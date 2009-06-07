@@ -247,7 +247,7 @@ public abstract class AbstractDeltaFile
     protected void closeFile(final String _md5)
     {
         System.out.println("have md5: " + this.checkSumMD5 + "    from SVN client: " + _md5);
-if (!this.checkSumMD5.equals(_md5))  {
+if ((this.checkSumMD5 != null) && (_md5 != null) && !this.checkSumMD5.equals(_md5))  {
     throw new Error("md5 checksum not equal");
 }
     }
