@@ -39,6 +39,8 @@ import com.googlecode.jsvnserve.api.ServerException.ErrorCode;
 import com.googlecode.jsvnserve.element.AbstractElement;
 import com.googlecode.jsvnserve.element.ListElement;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.util.Client2Server;
+import com.googlecode.jsvnserve.util.Server2Client;
 
 /**
  *
@@ -188,28 +190,31 @@ public class EditorCommandSet
      * @see DeltaFileCreate
      * @see #createFile(String)
      */
-    public AbstractDelta createFile(final String _path,
-                                    final String _serverPath)
+    public AbstractDeltaFile createFile(final String _path,
+                                        final String _serverPath)
     {
-        final AbstractDelta delta = new DeltaFileCreate(getNewToken('f'), _path, _serverPath);
+        final AbstractDeltaFile delta = new DeltaFileCreate(getNewToken('f'), _path, _serverPath);
         this.addDelta(delta);
         return delta;
     }
 
     /**
      *
-     * @param _path         path of the file (on the client side)
-     * @param _orgPath      path of the file (on the server); the path is used
-     *                      to get the input stream
-     * @param _revision     revision of the file
+     * @param _currentPath      path of the file (on the client side)
+     * @param _currentRevision  revision of the file
+     * @param _orgPath          path of the file (on the server); the path is
+     *                          used to get the input stream
      * @return new update file delta instance
      * @see DeltaFileCreate
      */
-    public AbstractDelta updateFile(final String _path,
-                                    final String _orgPath,
-                                    final Long _revision)
+    public AbstractDeltaFile updateFile(final String _currentPath,
+                                        final Long _currentRevision,
+                                        final String _orgPath)
     {
-        final AbstractDelta delta = new DeltaFileOpen(getNewToken('f'), _path, _orgPath, _revision);
+        final AbstractDeltaFile delta = new DeltaFileOpen(getNewToken('f'),
+                                                          _currentPath,
+                                                          _orgPath,
+                                                          _currentRevision);
         this.addDelta(delta);
         return delta;
     }
@@ -237,6 +242,7 @@ public class EditorCommandSet
      * @throws ServerException      if the client has aborted or if an unknown
      *                              key from client was sent
      */
+    @Client2Server
     public void read(final SVNSessionStreams _streams)
             throws IOException, URISyntaxException, ServerException
     {
@@ -291,8 +297,10 @@ public class EditorCommandSet
                     break;
                 case APPLY_TEXTDELTA:
                     final String apToken = params.get(0).getString();
+                    final List<AbstractElement<?>> baseMD5List = params.get(1).getList();
+                    final String baseMD5 = baseMD5List.isEmpty() ? null : baseMD5List.get(0).getString();
                     final AbstractDeltaFile apDelta = (AbstractDeltaFile) this.mapToken2Delta.get(apToken);
-                    apDelta.applyTextDelta();
+                    apDelta.applyTextDelta(_streams, baseMD5);
                     break;
                 case TEXTDELTA_CHUNK:
                     final String tcToken = params.get(0).getString();
@@ -345,6 +353,7 @@ throw new ServerException("Unknown command(s) " + unknownCommands);
         }
     }
 
+    @Client2Server
     public void close()
     {
         for (final AbstractDelta delta : getDeltas())  {
@@ -358,6 +367,7 @@ throw new ServerException("Unknown command(s) " + unknownCommands);
      * @throws UnsupportedEncodingException
      * @throws IOException
      */
+    @Server2Client
     public void write(final SVNSessionStreams _streams)
             throws UnsupportedEncodingException, IOException
     {

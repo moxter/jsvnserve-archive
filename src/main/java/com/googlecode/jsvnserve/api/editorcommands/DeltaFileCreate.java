@@ -26,6 +26,7 @@ import java.util.Date;
 
 import com.googlecode.jsvnserve.SVNSessionStreams;
 import com.googlecode.jsvnserve.element.WordElement.Word;
+import com.googlecode.jsvnserve.util.Server2Client;
 
 /**
  *
@@ -91,16 +92,15 @@ public class DeltaFileCreate
      * @see AbstractDeltaFile#writeOpen(long, SVNSessionStreams, String, Word, java.io.InputStream, java.io.InputStream)
      */
     @Override
+    @Server2Client
     protected void writeOpen(final long _targetRevision,
                              final SVNSessionStreams _streams,
                              final String _parentToken)
             throws UnsupportedEncodingException, IOException
     {
-        this.writeOpen(_targetRevision,
-                       _streams,
+        this.writeOpen(_streams,
                        _parentToken,
                        Word.ADD_FILE,
-                       null,
                        _streams.getSession().getRepository().getFile(_targetRevision, this.serverPath));
     }
 
@@ -114,6 +114,7 @@ public class DeltaFileCreate
      * @param _streams          SVN in- and output stream
      */
     @Override
+    @Server2Client
     protected void writeClose(final SVNSessionStreams _streams)
     {
     }
