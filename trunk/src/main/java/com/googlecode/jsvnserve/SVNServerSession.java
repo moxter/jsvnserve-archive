@@ -250,7 +250,7 @@ public class SVNServerSession
             // if no user is defined, user must authenticate
             if (this.user == null)  {
                 this.authenticate(hostUri.getHost());
-            // otherwise no autorization needed!
+            // otherwise no authentication needed!
             } else  {
                 this.streams.writeItemList(NO_AUTHORIZATION_NEEDED);
             }
