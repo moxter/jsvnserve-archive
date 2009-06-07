@@ -54,15 +54,13 @@ public class DeltaFileOpen
      *                          updated (and so the current path...)
      * @param _serverPath       path of the file on the server
      * @param _currentRevision  current file revision which is opened (and
-     *                          updated)
-     * @param _currentMD5       current MD5 hash of the file which is opened
-     *                          (and updated); only if a MD5 exists a file
-     *                          will be updated (and not replaced)
+     *                          updated); also called the revision of the base
+     *                          file
      */
     DeltaFileOpen(final String _token,
                   final String _path,
                   final String _serverPath,
-                  final long _currentRevision)
+                  final Long _currentRevision)
     {
         super(_token, _path, _path, _currentRevision);
         this.serverPath = _serverPath;
