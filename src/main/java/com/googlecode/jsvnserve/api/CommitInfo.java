@@ -20,15 +20,15 @@
 
 package com.googlecode.jsvnserve.api;
 
-import java.util.Date;
 import java.util.Map;
 
 import com.googlecode.jsvnserve.api.editorcommands.EditorCommandSet;
+import com.googlecode.jsvnserve.util.Timestamp;
 
 /**
  * Holds the log information about a commit.
  *
- * @see IRepository#commit(String, Map, boolean, Properties, EditorCommandSet)
+ * @see IRepository#commit(String, Map, boolean, com.googlecode.jsvnserve.api.properties.Properties, EditorCommandSet)
  * @author jSVNServe Team
  * @version $Id$
  */
@@ -47,11 +47,17 @@ public class CommitInfo
     /**
      * Date of the commit.
      */
-    private final Date date;
+    private final Timestamp date;
 
+    /**
+     *
+     * @param _revision revision of the commit
+     * @param _author   author of the commit
+     * @param _date     date of the commit
+     */
     public CommitInfo(final long _revision,
                       final String _author,
-                      final Date _date)
+                      final Timestamp _date)
     {
         this.revision = _revision;
         this.author = _author;
@@ -65,7 +71,7 @@ public class CommitInfo
      */
     public long getRevision()
     {
-        return revision;
+        return this.revision;
     }
 
     /**
@@ -75,7 +81,7 @@ public class CommitInfo
      */
     public String getAuthor()
     {
-        return author;
+        return this.author;
     }
 
     /**
@@ -83,8 +89,8 @@ public class CommitInfo
      * @return date of commit
      * @see #date
      */
-    public Date getDate()
+    public Timestamp getDate()
     {
-        return date;
+        return this.date;
     }
 }

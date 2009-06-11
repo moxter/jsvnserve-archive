@@ -315,7 +315,7 @@ public class Repository
 
                 commitInfo = new CommitInfo(svnCommitInfo.getNewRevision(),
                                             svnCommitInfo.getAuthor(),
-                                            svnCommitInfo.getDate());
+                                            Timestamp.valueOf(svnCommitInfo.getDate()));
             } catch (final SVNException e) {
                 final int errorCode = e.getErrorMessage().getErrorCode().getCode();
                 if (errorCode == ErrorCode.SVN_ERR_FS_NOT_FOUND.code)  {
