@@ -79,11 +79,12 @@ public class SaslInputStream
     /**
      * Closes the original input stream {@link #in}.
      *
+     * @throws IOException if close failed
      * @see #in
      */
     @Override
     public void close()
-            throws IOException
+        throws IOException
     {
         this.in.close();
     }
@@ -94,10 +95,11 @@ public class SaslInputStream
      *
      * @return next byte from the stream or <code>-1</code> if end of file
      *         reached
+     * @throws IOException if read failed
      */
     @Override
     public int read()
-            throws IOException
+        throws IOException
     {
         final byte[] buf = new byte[1];
         final int len = this.read(buf, 0, 1);
@@ -113,13 +115,15 @@ public class SaslInputStream
      * @param _offset   start offset in array <code>_bytes</code> at which the
      *                  data is written
      * @param _len      length of bytes to read
+     * @return read integer value
+     * @throws IOException if read failed
      * @see #byteBuffer
      */
     @Override
     public int read(final byte[] _bytes,
                     final int _offset,
                     final int _len)
-            throws IOException
+        throws IOException
     {
         int read = 0;
         if (_len > 0)  {
@@ -143,8 +147,7 @@ public class SaslInputStream
      * @return always <code>0</code> because skip is not supported
      */
     @Override
-    public long skip(long _count)
-            throws IOException
+    public long skip(final long _count)
     {
         return 0;
     }
@@ -165,13 +168,13 @@ public class SaslInputStream
      * @throws IOException  if an I/O error occurs
      */
     private void readDecodedBuffer()
-            throws EOFException, IOException
+        throws EOFException, IOException
     {
         // get length of bytes to decode
-        final int ch1 = in.read();
-        final int ch2 = in.read();
-        final int ch3 = in.read();
-        final int ch4 = in.read();
+        final int ch1 = this.in.read();
+        final int ch2 = this.in.read();
+        final int ch3 = this.in.read();
+        final int ch4 = this.in.read();
         if ((ch1 | ch2 | ch3 | ch4) < 0)  {
             throw new EOFException();
         }
@@ -192,6 +195,6 @@ public class SaslInputStream
             n += count;
         }
 
-        this.byteBuffer = ByteBuffer.wrap(saslServer.unwrap(readBuffer, 0, decodedLength));
+        this.byteBuffer = ByteBuffer.wrap(this.saslServer.unwrap(this.readBuffer, 0, decodedLength));
     }
 }

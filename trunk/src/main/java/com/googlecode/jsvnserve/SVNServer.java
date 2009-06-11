@@ -255,7 +255,7 @@ System.out.println("sessionClosed.end");
          * @see SaslServerFactory#getMechanismNames(Map)
          * @see Sasl#getSaslServerFactories()
          */
-        public String[] getMechanismNames(Map<String, ?> _props)
+        public String[] getMechanismNames(final Map<String, ?> _props)
         {
             final List<String> mechs = new ArrayList<String>();
             final Enumeration<SaslServerFactory> en = Sasl.getSaslServerFactories();

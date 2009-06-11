@@ -36,7 +36,7 @@ public class LockDescriptionList
     /**
      * Holds depending on the path all related lock descriptions.
      */
-    private final Map<String,LockDescription> lockDescriptions = new TreeMap<String,LockDescription>();
+    private final Map<String, LockDescription> lockDescriptions = new TreeMap<String, LockDescription>();
 
 
     /**
@@ -51,8 +51,7 @@ public class LockDescriptionList
     }
 
     /**
-     * Adds
-     *
+     * Adds to the lock list a successful lock.
      *
      * @param _path     path which is successfully locked
      * @param _token    lock token (id)
@@ -112,7 +111,7 @@ public class LockDescriptionList
      * For each path which is locked or unlocked, a description must be
      * returned (if the lock was successfully or was failed).
      */
-    public static class LockDescription
+    public static final class LockDescription
     {
         /**
          * Locking status of the path.
@@ -196,7 +195,7 @@ public class LockDescriptionList
          */
         public Status getStatus()
         {
-            return status;
+            return this.status;
         }
 
         /**
@@ -206,7 +205,7 @@ public class LockDescriptionList
          */
         public String getPath()
         {
-            return path;
+            return this.path;
         }
 
         /**
@@ -216,7 +215,7 @@ public class LockDescriptionList
          */
         public String getToken()
         {
-            return token;
+            return this.token;
         }
 
         /**
@@ -226,7 +225,7 @@ public class LockDescriptionList
          */
         public String getOwner()
         {
-            return owner;
+            return this.owner;
         }
 
         /**
@@ -237,7 +236,7 @@ public class LockDescriptionList
          */
         public String getComment()
         {
-            return comment;
+            return this.comment;
         }
 
         /**
@@ -247,7 +246,7 @@ public class LockDescriptionList
          */
         public Date getCreated()
         {
-            return created;
+            return this.created;
         }
 
         /**
@@ -257,7 +256,7 @@ public class LockDescriptionList
          */
         public Date getExpires()
         {
-            return expires;
+            return this.expires;
         }
     }
 }

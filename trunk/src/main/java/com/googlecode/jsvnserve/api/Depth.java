@@ -76,7 +76,7 @@ public enum Depth
      * Wrapper class used for static variables within enumerations to map
      * between {@link Word} elements and the related enumeration {@link Depth}.
      */
-    private final static class Wrapper
+    private static final class Wrapper
     {
         /**
          * Maps between the related {@link Word}Êvalue and this depth
@@ -84,7 +84,7 @@ public enum Depth
          *
          * @see Depth#valueOf(Word)
          */
-        private final static Map<Word,Depth> MAP = new HashMap<Word,Depth>();
+        private static final Map<Word,Depth> MAP = new HashMap<Word,Depth>();
     }
 
     /**

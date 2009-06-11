@@ -434,7 +434,7 @@ public class SVNServerSession
      * @see #user
      */
     protected void authenticate(final String _host)
-            throws UnsupportedEncodingException, IOException
+        throws UnsupportedEncodingException, IOException
     {
         // evaluate list of authentication mechanism
         final ListElement mechanisms = new ListElement();
@@ -546,7 +546,7 @@ public class SVNServerSession
      *
      */
     protected void svnGetLatestRev()
-            throws UnsupportedEncodingException, IOException
+        throws UnsupportedEncodingException, IOException
     {
         this.streams.writeItemList(
                 SVNServerSession.NO_AUTHORIZATION_NEEDED,
@@ -861,7 +861,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         DirEntry dirEntry = null;
         try {
             dirEntry = this.getRepository().stat(revision, path, wantsProps);
-        } catch (ServerException e) {
+        } catch (final ServerException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
@@ -979,7 +979,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
         DirEntry dirEntry = null;
         try {
             dirEntry = this.getRepository().stat(revision, path, wantProps);
-        } catch (ServerException e) {
+        } catch (final ServerException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
@@ -1069,7 +1069,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      * @throws IOException
      */
     protected void svnCheckPath(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException
+        throws UnsupportedEncodingException, IOException
     {
         // get path
         final String path = _parameters.get(0).getString();
@@ -1132,7 +1132,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      * @throws IOException
      */
     protected void svnStat(final List<AbstractElement<?>> _parameters)
-           throws UnsupportedEncodingException, IOException
+        throws UnsupportedEncodingException, IOException
     {
         final String path = _parameters.get(0).getString();
         final Long revision = _parameters.get(1).getList().get(0).getNumber();
@@ -1224,7 +1224,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      * @throws IOException
      */
     protected void svnUpdate(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException
+        throws UnsupportedEncodingException, IOException
     {
         // revision number
         final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
@@ -1307,7 +1307,7 @@ errorMsg = "Versioned property '" + propKey + "' can't be set explicitly as revi
      * @throws URISyntaxException
      */
     protected void svnSwitch(final List<AbstractElement<?>> _parameters)
-            throws UnsupportedEncodingException, IOException, URISyntaxException
+        throws UnsupportedEncodingException, IOException, URISyntaxException
     {
         // revision number
         final List<AbstractElement<?>> revisionParams = _parameters.get(0).getList();
@@ -2034,5 +2034,4 @@ if ((result != null) && (result.getList().get(0).getWord() != Word.STATUS_SUCCES
     {
         return this.repository;
     }
-
 }
