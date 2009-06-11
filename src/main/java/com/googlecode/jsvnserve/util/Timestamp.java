@@ -23,19 +23,18 @@ package com.googlecode.jsvnserve.util;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.SimpleTimeZone;
 
 /**
- * <p>A thin wrapper around {@link Date} to identify SVN timestamps which
+ * <p>A thin wrapper around {@link Date} to identify SVN time stamps which
  * includes microseconds. The class could handle also the related string
- * representation of the SVN timestamps in GMT0 time zone (encode and decode
- * to / from strings). The string representation of the SVN timestamp uses the
+ * representation of the SVN time stamps in GMT0 time zone (encode and decode
+ * to / from strings). The string representation of the SVN time stamp uses the
  * format <code>yyyy-MM-dd'T'HH:mm:ss.SSSfff</code> (<code>fff</code> stands
  * for the microseconds).</p>
  * <p><b>Attention!</b> The class uses the {@link #date} instance to hold the
- * timestamp milliseconds. The microseconds of the SVN timestamp are stored
+ * time stamp milliseconds. The microseconds of the SVN time stamp are stored
  * separately in {@link #microseconds}.<p/>
  *
  * @author jSVNServe Team
@@ -54,7 +53,7 @@ public class Timestamp
     private static final DateFormat DATETIMEFORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
     static
     {
-        DATETIMEFORMAT.setTimeZone(new SimpleTimeZone(0, "GMT"));
+        Timestamp.DATETIMEFORMAT.setTimeZone(new SimpleTimeZone(0, "GMT"));
     }
 
     /**
@@ -69,17 +68,18 @@ public class Timestamp
     private final int microseconds;
 
     /**
-     * Constructor to create a new timestamp instance.
+     * Constructor to create a new time stamp instance.
      *
-     * @param time milliseconds since January 1, 1970, 00:00:00 GMT.
-     *        A negative number is the number of milliseconds before
-     *        January 1, 1970, 00:00:00 GMT.
-     * @param microseconds part of timestamp
-     * @see Calendar for more information
+     * @param _time         milliseconds since January 1, 1970, 00:00:00 GMT.
+     *                      A negative number is the number of milliseconds
+     *                      before January 1, 1970, 00:00:00 GMT.
+     * @param _microseconds part of time stamp
+     * @see java.util.Calendar for more information
      * @see #date
      * @see #microseconds
      */
-    public Timestamp(final long _time, final int _microseconds)
+    public Timestamp(final long _time,
+                     final int _microseconds)
     {
         final int miliseconds = (_microseconds / 1000);
         this.date.setTime(_time + miliseconds);
@@ -87,10 +87,11 @@ public class Timestamp
     }
 
     /**
-     * Returns the string formatted in SVN of the timestamp. First,
+     * Returns the string formatted in SVN of the time stamp. First,
      * {@link #date} is formatted with {@link #DATETIMEFORMAT}, then as prefix
      * the microseconds are appended.
      *
+     * @return string representation of a time stamp
      * @see #date
      * @see #microseconds
      */
@@ -98,17 +99,17 @@ public class Timestamp
     public String toString()
     {
         return new StringBuilder()
-                .append(DATETIMEFORMAT.format(this.date))
+                .append(Timestamp.DATETIMEFORMAT.format(this.date))
                 .append(String.format("%03d", this.microseconds))
                 .append('Z')
                 .toString();
     }
 
     /**
-     * Returns a SVN timestamp instance encoded in a string representation.
+     * Returns a SVN time stamp instance encoded in a string representation.
      *
      * @param _value    string value to parse
-     * @return related SVN timestamp
+     * @return related SVN time stamp
      */
     public static Timestamp valueOf(final String _value)
     {
@@ -119,7 +120,7 @@ public class Timestamp
             final int pointIdx = _value.indexOf('.');
             final Date date;
             try  {
-                date = DATETIMEFORMAT.parse(_value.substring(0, pointIdx + 4));
+                date = Timestamp.DATETIMEFORMAT.parse(_value.substring(0, pointIdx + 4));
             } catch (final ParseException ex)  {
                 throw new IllegalArgumentException("Timestamp format must be yyyy-MM-dd'T'HH:mm:ss.ffffff");
             }
@@ -131,12 +132,12 @@ public class Timestamp
     }
 
     /**
-     * Returns a SVN timestamp instance in microseconds. Because the date
+     * Returns a SVN time stamp instance in microseconds. Because the date
      * instance has only milliseconds, the microseconds will be
      * &quot;<code>0</code>&quot;.
      *
      * @param _value    date instance in milliseconds
-     * @return SVN timestamp with microseconds
+     * @return SVN time stamp with microseconds
      */
     public static Timestamp valueOf(final Date _value)
     {
@@ -148,8 +149,8 @@ public class Timestamp
      * SQL timestamp instance uses nanoseconds, only the microsecond part is
      * used (rounded).
      *
-     * @param _timestamp    SQL timestamp with nanoseconds
-     * @return SVN timestamp with microseconds
+     * @param _timestamp    SQL time stamp with nanoseconds
+     * @return SVN time stamp with microseconds
      */
     public static Timestamp valueOf(final java.sql.Timestamp _timestamp)
     {

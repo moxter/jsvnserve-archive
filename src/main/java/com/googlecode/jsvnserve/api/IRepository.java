@@ -47,7 +47,7 @@ public interface IRepository
      *
      * @return universally unique identifier of the repository
      */
-    public UUID getUUID();
+    UUID getUUID();
 
     /**
      * Returns the path of the repository which implements this repository. For
@@ -58,7 +58,7 @@ public interface IRepository
      * @see #getLocationPath()
      * @see IRepositoryFactory#createRepository(String, String)
      */
-    public CharSequence getRepositoryPath();
+    CharSequence getRepositoryPath();
 
     /**
      * Returns the location path within the repository. For explanation see
@@ -69,7 +69,7 @@ public interface IRepository
      * @see #setLocationPath(CharSequence)
      * @see IRepositoryFactory#createRepository(String, String)
      */
-    public CharSequence getLocationPath();
+    CharSequence getLocationPath();
 
     /**
      * A reparent of the repository itself is done. This means the current
@@ -78,14 +78,14 @@ public interface IRepository
      * @param _newPath  new location path
      * @see #getLocationPath()
      */
-    public void setLocationPath(final CharSequence _newPath);
+    void setLocationPath(final CharSequence _newPath);
 
     /**
      * Must return for this repository current latest revision.
      *
      * @return current latest revision
      */
-    public long getLatestRevision();
+    long getLatestRevision();
 
     /**
      * Returns for given revision (not revision 0) all revision properties.
@@ -96,8 +96,8 @@ public interface IRepository
      *                         in repository
      * @see #getRevision0Properties()
      */
-    public RevisionPropertyValues getRevisionProperties(final long _revision)
-            throws ServerException;
+    RevisionPropertyValues getRevisionProperties(final long _revision)
+        throws ServerException;
 
     /**
      * Returns for revision 0 all revision property. The properties for
@@ -108,14 +108,14 @@ public interface IRepository
      * @throws ServerException
      * @see #getRevisionProperties(long)
      */
-    public Revision0PropertyValues getRevision0Properties()
-            throws ServerException;
+    Revision0PropertyValues getRevision0Properties()
+        throws ServerException;
 
     /**
      * Method is called from the session, just before closing the session
      * itself. It can be used to implement closing and cleaning routines.
      */
-    public void close();
+    void close();
 
     /**
      * Commit changes to the repository. The path root of the commit is current
@@ -137,12 +137,12 @@ public interface IRepository
      *                                      exists
      * @throws OtherServerException         if commit failed in all other cases
      */
-    public CommitInfo commit(final String _logMessage,
-                             final Map<String,String> _locks,
-                             final boolean _keepLocks,
-                             final Properties _revisionProps,
-                             final EditorCommandSet _editor)
-            throws DirectoryNotExistsException, FileNotExistsException, OtherServerException;
+    CommitInfo commit(final String _logMessage,
+                      final Map<String, String> _locks,
+                      final boolean _keepLocks,
+                      final Properties _revisionProps,
+                      final EditorCommandSet _editor)
+        throws DirectoryNotExistsException, FileNotExistsException, OtherServerException;
 
     /**
      *
@@ -155,24 +155,25 @@ public interface IRepository
      * @param _retCreatedRev    must the created revision returned?
      * @param _retModified      must the modified date time returned?
      * @param _retAuthor        must the author returned?
-     * @return
+     * @return list of all related directory entries
      */
-    public DirEntryList getDir(final Long _revision,
-                               final CharSequence _path,
-                               final boolean _retFileSize,
-                               final boolean _retHasProps,
-                               final boolean _retCreatedRev,
-                               final boolean _retModified,
-                               final boolean _retAuthor);
+    DirEntryList getDir(final Long _revision,
+                        final CharSequence _path,
+                        final boolean _retFileSize,
+                        final boolean _retHasProps,
+                        final boolean _retCreatedRev,
+                        final boolean _retModified,
+                        final boolean _retAuthor);
 
     /**
      *
-     * @param _revision
-     * @param _path
-     * @return
+     * @param _revision     revision of the file
+     * @param _path         path of the file
+     * @return input stream for given file on <code>_path</code> for given
+     *         <code>_revision</code>
      */
-    public InputStream getFile(final Long _revision,
-                               final CharSequence _path);
+    InputStream getFile(final Long _revision,
+                        final CharSequence _path);
 
     /**
      * <p>Returns interesting file revisions for the specified file.</p>
@@ -190,11 +191,11 @@ public interface IRepository
      * @throws ServerException if interesting file revisions could not be
      *                         returned
      */
-    public FileRevisionsList getFileRevs(final String _path,
-                                         final long _startRev,
-                                         final long _endRev,
-                                         final boolean _mergeInfo)
-            throws ServerException;
+    FileRevisionsList getFileRevs(final String _path,
+                                  final long _startRev,
+                                  final long _endRev,
+                                  final boolean _mergeInfo)
+        throws ServerException;
 
     /**
      * Lock given file paths (depending on the revisions).
@@ -206,10 +207,10 @@ public interface IRepository
      * @return list of successfully or failed lockings
      * @throws ServerException if lock failed
      */
-    public LockDescriptionList lock(final String _comment,
-                                    final boolean _stealLock,
-                                    final Map<String,Long> _pathsWithRevision)
-            throws ServerException;
+    LockDescriptionList lock(final String _comment,
+                             final boolean _stealLock,
+                             final Map<String, Long> _pathsWithRevision)
+        throws ServerException;
 
     /**
      * Removes all locks for given file paths.
@@ -218,9 +219,10 @@ public interface IRepository
      *                          i.e. to &quot;break&quot; the lock
      * @param _pathsWithTokens  map with all file paths with depending tokens
      *                          to unlock
+     * @return list with all lock descriptions
      */
-    public LockDescriptionList unlock(final boolean _breakLock,
-                                      final Map<String,String> _pathsWithTokens);
+    LockDescriptionList unlock(final boolean _breakLock,
+                               final Map<String, String> _pathsWithTokens);
 
     /**
      * Checks for given file path if the file is locked. If the file is locked,
@@ -230,17 +232,17 @@ public interface IRepository
      * @return if file is locked the lock description of file is returned;
      *         otherwise <code>null</code> is returned
      */
-    public LockDescription getFileLock(final CharSequence _filePath);
+    LockDescription getFileLock(final CharSequence _filePath);
 
     /**
      * Returns all locks on or below given path, that is if the repository
      * entry (located at the path) is a directory then the method returns
      * locks of all locked files (if any) in it.
      *
-     * @param _paths    path under which locks are to be retrieved
+     * @param _path     path under which locks are to be retrieved
      * @return list of all locks for given path
      */
-    public LockDescriptionList getLocks(final CharSequence _path);
+    LockDescriptionList getLocks(final CharSequence _path);
 
     /**
      *
@@ -251,10 +253,10 @@ public interface IRepository
      * @return directory entry if the path is a file or a directory; otherwise
      *         <code>null</code> must be returned
      */
-    public DirEntry stat(final Long _revision,
-                         final CharSequence _path,
-                         final boolean _includeProperties)
-            throws ServerException;
+    DirEntry stat(final Long _revision,
+                  final CharSequence _path,
+                  final boolean _includeProperties)
+        throws ServerException;
 
     /**
      * <p>Returns for given paths depending on the start and end revision the
@@ -278,10 +280,10 @@ public interface IRepository
      * @param _paths                paths for which the log is searched
      * @return list of log entries
      */
-    public LogEntryList getLog(final long _startRevision,
-                               final long _endRevision,
-                               final boolean _includeChangedPaths,
-                               final CharSequence... _paths);
+    LogEntryList getLog(final long _startRevision,
+                        final long _endRevision,
+                        final boolean _includeChangedPaths,
+                        final CharSequence... _paths);
 
     /**
      *
@@ -292,13 +294,14 @@ public interface IRepository
      * @param _depth                depth for update, determines the scope
      * @param _report               report of current directory structure of
      *                              the client
-     * @return
+     * @return editor command set which describes the status for
+     *         <code>_path</code>
      */
-    public EditorCommandSet getStatus(final Long _revision,
-                                      final String _path,
-                                      final Depth _depth,
-                                      final ReportList _report)
-            throws ServerException;
+    EditorCommandSet getStatus(final Long _revision,
+                               final String _path,
+                               final Depth _depth,
+                               final ReportList _report)
+        throws ServerException;
 
     /**
      * <p>The client wants to switch from <code>_path</code> to
@@ -316,12 +319,12 @@ public interface IRepository
      *         from <code>_path</code> to <code>_newPath</code>
      * @throws ServerException
      */
-    public EditorCommandSet getSwitchEditor(final String _newPath,
-                                            final Long _revision,
-                                            final String _path,
-                                            final Depth _depth,
-                                            final ReportList _report)
-            throws ServerException;
+    EditorCommandSet getSwitchEditor(final String _newPath,
+                                     final Long _revision,
+                                     final String _path,
+                                     final Depth _depth,
+                                     final ReportList _report)
+        throws ServerException;
 
     /**
      * <p>Returns the path locations in revision history. The location of a
@@ -356,8 +359,7 @@ public interface IRepository
      * @return all existing location entries depending on the
      *         <code>_revisions</code>
      */
-    public LocationEntries getLocations(final long _pegRevision,
-                                        final String _path,
-                                        final long... _revisions);
-
+    LocationEntries getLocations(final long _pegRevision,
+                                 final String _path,
+                                 final long... _revisions);
 }

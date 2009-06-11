@@ -40,7 +40,7 @@ public class LocationEntries
     /**
      * Holds depending in the revision related path names (location).
      */
-    private final Map<Long,String> entries = new HashMap<Long,String>();
+    private final Map<Long, String> entries = new HashMap<Long, String>();
 
     /**
      * Adds a new location to the list of location entries.
@@ -72,9 +72,9 @@ public class LocationEntries
      * @throws IOException                  if an I/O error occurred
      */
     public void write(final SVNSessionStreams _streams)
-            throws UnsupportedEncodingException, IOException
+        throws UnsupportedEncodingException, IOException
     {
-        for (final Map.Entry<Long,String> entry : this.entries.entrySet())  {
+        for (final Map.Entry<Long, String> entry : this.entries.entrySet())  {
             _streams.writeItemList(new ListElement(entry.getKey(), entry.getValue()));
         }
         _streams.write("done ");

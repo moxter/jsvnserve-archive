@@ -84,30 +84,32 @@ public class SaslOutputStream
      * Writes given byte into {@link #buffer}.
      *
      * @param _byte     byte to write
+     * @throws IOException if write failed
      * @see #write(byte[], int, int)
      */
     @Override
     public void write(final int _byte)
-            throws IOException
+        throws IOException
     {
         write(new byte[] {(byte) (_byte & 0xff)});
     }
 
     /**
-     * The <code>_bytes</codes> are written to into {@link #buffer}. If the
+     * The <code>_bytes</code> are written to into {@link #buffer}. If the
      * buffer size is reached, the buffer is flushed with {@link #flush()}.
      *
      * @param _bytes    bytes buffer to write
      * @param _offset   offset in <code>_bytes</code> to start to write
      * @param _len      length of bytes to write
+     * @throws IOException if write failed
      * @see #buffer
      * @see #flush()
      */
     @Override
     public void write(final byte[] _bytes,
                       final int _offset,
-                      int _len)
-            throws IOException
+                      final int _len)
+        throws IOException
     {
         int offset = _offset;
         int len = _len;
@@ -126,12 +128,13 @@ public class SaslOutputStream
      * Flushes current buffered bytes in {@link #buffer} with {@link #flush()}
      * and closes original output stream {@link #out}.
      *
+     * @throws IOException if closing failed
      * @see #flush()
      * @see #out
      */
     @Override
     public void close()
-            throws IOException
+        throws IOException
     {
         this.flush();
         this.out.close();
@@ -141,13 +144,14 @@ public class SaslOutputStream
      * Encodes buffered bytes {@link #buffer} and writes them to the output
      * stream {@link #out}.
      *
+     * @throws IOException if flushing failed
      * @see #out
      * @see #buffer
      * @see #lengthBuffer
      */
     @Override
     public void flush()
-            throws IOException
+        throws IOException
     {
         final byte[] bytes = this.buffer.array();
         final int off = this.buffer.arrayOffset();

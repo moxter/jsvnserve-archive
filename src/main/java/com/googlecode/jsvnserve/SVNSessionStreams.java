@@ -53,7 +53,7 @@ import com.googlecode.jsvnserve.sasl.SaslOutputStream;
  */
 public class SVNSessionStreams
 {
-    private final static Logger LOGGER = LoggerFactory.getLogger(SVNSessionStreams.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SVNSessionStreams.class);
 
     /**
      * Stores related SVN server session for which this input and output
@@ -78,7 +78,7 @@ public class SVNSessionStreams
      *
      * @see #readElement()
      */
-    final ListElement dummyList = new ListElement();
+    private final ListElement dummyList = new ListElement();
 
     /**
      *
@@ -288,12 +288,13 @@ public class SVNSessionStreams
                     new ISVNDeltaConsumer() {
                         boolean writeHeader = true;
 
-                        public void applyTextDelta(String s, String s1)
+                        public void applyTextDelta(final String s, final String s1)
                         {
                         }
 
                         public OutputStream textDeltaChunk(final String s,
-                                final SVNDiffWindow svndiffwindow) throws SVNException
+                                                           final SVNDiffWindow svndiffwindow)
+                            throws SVNException
                         {
                             try {
                                 svndiffwindow.writeTo(_output, this.writeHeader, true);
@@ -304,7 +305,7 @@ public class SVNSessionStreams
                             return null;
                         }
 
-                        public void textDeltaEnd(String s)
+                        public void textDeltaEnd(final String s)
                         {
                         }
                     },
@@ -385,7 +386,7 @@ public class SVNSessionStreams
             if (outBuffSizeStr != null) {
                 try {
                     outBuffSize = Integer.parseInt(outBuffSizeStr);
-                } catch (NumberFormatException nfe) {
+                } catch (final NumberFormatException nfe) {
                     outBuffSize = 1000;
                 }
             }
@@ -409,25 +410,25 @@ public class SVNSessionStreams
     /**
      * @see SVNSessionStreams#writeFileDelta(InputStream, InputStream, DeltaOutputStream, boolean)
      */
-    public static abstract class DeltaOutputStream
+    public abstract static class DeltaOutputStream
             extends OutputStream
     {
         @Override
-        public abstract void write(final byte _bytes[],
+        public abstract void write(final byte[] _bytes,
                                    final int _offset,
                                    final int _len)
-                throws IOException;
+            throws IOException;
 
         @Override
         public void write(final byte[] _bytes)
-                throws IOException
+            throws IOException
         {
             write(_bytes, 0, _bytes.length);
         }
 
         @Override
         public void write(final int _byte)
-                throws IOException
+            throws IOException
         {
             write(new byte[]{(byte) (_byte & 0xFF)});
         }
