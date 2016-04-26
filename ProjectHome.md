@@ -1,0 +1,1 @@
+The goal of the project is to implement the SVN protocol as pure Java API.
